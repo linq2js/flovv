@@ -253,14 +253,14 @@ export function createStore({
       );
       return task.handleSuccess(isMultiple ? flowArray : flowArray[0]);
     },
-    // start(payload, task) {
-    //   const [fn, p] = Array.isArray(payload) ? payload : [payload];
-    //   return flow(fn).start(p, task);
-    // },
-    // restart(payload, task) {
-    //   const [fn, p] = Array.isArray(payload) ? payload : [payload];
-    //   return flow(fn).restart(p, task);
-    // },
+    start(payload, task) {
+      const [fn, p] = Array.isArray(payload) ? payload : [payload];
+      return getFlow(fn).start(p, task);
+    },
+    restart(payload, task) {
+      const [fn, p] = Array.isArray(payload) ? payload : [payload];
+      return getFlow(fn).restart(p, task);
+    },
     once(payload, task) {
       const flows = Array.isArray(payload) ? payload : [payload];
 
@@ -671,6 +671,16 @@ export function createFlow(fn, getState, getFlow, commands) {
     },
     get(payload, task) {
       return resolveValues(false, payload, task);
+    },
+    cancel(payload, task) {
+      if (payload) {
+        if (typeof payload === "function") {
+          getFlow(payload).cancel();
+        } else {
+          currentTask.cancel();
+        }
+      }
+      return task.handleSuccess();
     },
   };
 

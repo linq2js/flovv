@@ -10,7 +10,11 @@ export type FlowGenerator<TResult = any> = Generator<
 
 export type DelayExpression = { delay: number };
 
-export type FlowExpression = { flow: Flow | Flow[] };
+export type FlowExpression = { start: Flow | Flow[] };
+
+export type StartExpression = { start: Flow | [Flow, any] };
+
+export type RestartExpression = { restart: Flow | [Flow, any] };
 
 export type OnExpression = { on: { [event: string]: Function } };
 
@@ -58,8 +62,8 @@ export type CallExpression = {
   call: Function | [Function, ...any[]];
 };
 
-export type TaskExpression = {
-  task: "dispose" | "cancel";
+export type CancelExpression = {
+  cancel: boolean | Flow | null | undefined;
 };
 
 export type Callback<T = any> = (arg?: T) => void;
@@ -70,6 +74,8 @@ export type OnceExpression = {
 
 export type YieldExpression =
   | FlowExpression
+  | StartExpression
+  | RestartExpression
   | OnceExpression
   | ForkExpression
   | SetExpression
@@ -77,12 +83,12 @@ export type YieldExpression =
   | RetExpression
   | DelayExpression
   | OnExpression
+  | CancelExpression
   | WhenExpression
   | EmitExpression
   | AnyExpression
   | AllExpression
   | DoneExpression
-  | TaskExpression
   | FlowGenerator
   | Promise<any>;
 
