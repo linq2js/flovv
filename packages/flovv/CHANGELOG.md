@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.2.0](https://github.com/linq2js/flovv/compare/flovv@0.1.7...flovv@0.2.0) (2021-08-11)
+
+
+### Bug Fixes
+
+* on expression works incorrect ([6a7a86e](https://github.com/linq2js/flovv/commit/6a7a86e1ca00f5fb4e986e2bd18a99cef4ea7853))
+* on expression works incorrect ([8f4d70d](https://github.com/linq2js/flovv/commit/8f4d70d543d3027088dee59a80f338668b303d78))
+
+
+### Features
+
+* add debounce expression ([390157c](https://github.com/linq2js/flovv/commit/390157c4b5f0420bdd319be5cb8dfbe6a1f1bea3))
+* add throttle expression ([2bb1f9c](https://github.com/linq2js/flovv/commit/2bb1f9cca3e253ccd32c6b24a532b77441a7b69e))
+
+
+
+
+
 ## [0.1.7](https://github.com/linq2js/flovv/compare/flovv@0.1.6...flovv@0.1.7) (2021-08-11)
 
 **Note:** Version bump only for package flovv
