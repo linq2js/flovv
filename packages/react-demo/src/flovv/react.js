@@ -23,9 +23,9 @@ export function useFlow(flowFn, payload) {
   const ref = useRef({}).current;
   const rerender = useState()[1];
   if (ref.flow !== flow || ref.store !== store) {
-    if (ref.wrapper) {
-      ref.wrapper.dispose();
-    }
+    // if (ref.wrapper) {
+    //   ref.wrapper.dispose();
+    // }
     ref.flow = flow;
     ref.store = store;
     ref.wrapper = createFlowWrapper(ref.flow, rerender);

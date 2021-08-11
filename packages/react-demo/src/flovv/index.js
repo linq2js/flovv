@@ -637,7 +637,7 @@ export function createTask(parent, onSuccess, onError) {
 
 export function createFlow(fn, getState, getFlow, commands) {
   let stale = true;
-  let status = "pending";
+  let status = undefined;
   let currentTask = createTask();
   let data;
   let error;
@@ -772,7 +772,9 @@ export function createFlow(fn, getState, getFlow, commands) {
   }
 
   function handleChange(s, d, e, task) {
-    if (task !== currentTask) return;
+    if (task !== currentTask) {
+      return;
+    }
     error = e;
     data = d;
     status = s;

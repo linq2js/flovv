@@ -119,3 +119,25 @@ test("once", async () => {
   await delay(30);
   expect(callback.mock.calls).toEqual([["b"], ["a"]]);
 });
+
+test("debounce", async () => {
+  const callback = jest.fn();
+  const store = flovv();
+  function* mainFlow() {
+    yield {
+      debounce: {
+        ms: 10,
+        when: "search",
+        flow: { call: callback },
+      },
+    };
+  }
+  store.start(mainFlow);
+  store.emit("search");
+  store.emit("search");
+  await delay(5);
+  store.emit("search");
+  store.emit("search");
+  await delay(15);
+  expect(callback).toBeCalledTimes(1);
+});

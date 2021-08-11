@@ -10,6 +10,15 @@ function* TodoList() {
   return todos.slice(0, 20);
 }
 
+function* TodoSummary() {
+  const todos = yield { ref: TodoList };
+  return {
+    total: todos.length,
+    completed: todos.filter((x) => x.completed).length,
+    active: todos.filter((x) => !x.completed).length,
+  };
+}
+
 function* FilteredTodoList() {
   const filter = yield { ref: "filter" };
   const todos = yield { ref: TodoList };
@@ -20,6 +29,7 @@ function* FilteredTodoList() {
 
 function* UpdateFilter(filter) {
   yield { set: { filter } };
+  // abcaaaaaaa
 }
 
 function* RemoveTodo(id) {
@@ -28,10 +38,40 @@ function* RemoveTodo(id) {
   yield { set: [TodoList, (todos) => todos.filter((x) => x.id !== id)] };
 }
 
-function TodoApp() {
-  const todoList = useFlow(TodoList);
+function TodoFilterBar() {
   const filter = useFlow("filter");
   const updateFilter = useFlow(UpdateFilter).restart;
+  const { total, active, completed } = useFlow(TodoSummary).start().data || {
+    total: 0,
+    active: 0,
+    completed: 0,
+  };
+
+  return (
+    <p>
+      <label onClick={() => updateFilter("all")}>
+        <input key={filter} type="radio" defaultChecked={filter === "all"} />{" "}
+        All ({total})
+      </label>
+      <label onClick={() => updateFilter("active")}>
+        <input key={filter} type="radio" defaultChecked={filter === "active"} />{" "}
+        Active ({active})
+      </label>
+      <label onClick={() => updateFilter("completed")}>
+        <input
+          key={filter}
+          type="radio"
+          defaultChecked={filter === "completed"}
+        />{" "}
+        Completed ({completed})
+      </label>
+    </p>
+  );
+}
+
+function TodoApp() {
+  const todoList = useFlow(TodoList);
+
   const removeTodo = useFlow(RemoveTodo).restart;
   const { data, loading } = useFlow(FilteredTodoList).start();
   if (loading) return "Loading...";
@@ -39,28 +79,7 @@ function TodoApp() {
   return (
     <>
       <button onClick={() => todoList.restart()}>Reload</button>
-      <p>
-        <label onClick={() => updateFilter("all")}>
-          <input key={filter} type="radio" defaultChecked={filter === "all"} />{" "}
-          All
-        </label>
-        <label onClick={() => updateFilter("active")}>
-          <input
-            key={filter}
-            type="radio"
-            defaultChecked={filter === "active"}
-          />{" "}
-          Active
-        </label>
-        <label onClick={() => updateFilter("completed")}>
-          <input
-            key={filter}
-            type="radio"
-            defaultChecked={filter === "completed"}
-          />{" "}
-          Completed
-        </label>
-      </p>
+      <TodoFilterBar />
       <ul>
         {data.map((todo) => (
           <li

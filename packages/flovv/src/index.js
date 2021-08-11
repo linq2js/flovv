@@ -107,6 +107,29 @@ function processExpression(expression, task, commands, next) {
     );
   }
 
+  if ("debounce" in expression) {
+    const { ms, when, flow, payload } = expression.debounce;
+    const inner = function* () {
+      yield { delay: ms };
+      if (typeof flow === "function") {
+        yield* flow(payload);
+      } else {
+        yield flow;
+      }
+    };
+    const outer = function* () {
+      let forkedTask;
+      while (true) {
+        yield { when };
+        if (forkedTask) forkedTask.cancel();
+        forkedTask = yield {
+          fork: inner(),
+        };
+      }
+    };
+    return processFork(outer(), commands, task, next);
+  }
+
   if ("use" in expression) {
     // custom commands
     return next(undefined, {
@@ -159,7 +182,12 @@ function processExpression(expression, task, commands, next) {
 
   const key = keys[0];
   const childTask = task.child(next);
-  const commandResult = commands[key](expression[key], childTask, commands);
+  const commandResult = commands[key](
+    expression[key],
+    childTask,
+    commands,
+    next
+  );
   // command can produce yield expression
   if (typeof commandResult === "function") {
     const exp = commandResult();
@@ -637,7 +665,7 @@ export function createTask(parent, onSuccess, onError) {
 
 export function createFlow(fn, getState, getFlow, commands) {
   let stale = true;
-  let status = "pending";
+  let status = undefined;
   let currentTask = createTask();
   let data;
   let error;
@@ -772,7 +800,9 @@ export function createFlow(fn, getState, getFlow, commands) {
   }
 
   function handleChange(s, d, e, task) {
-    if (task !== currentTask) return;
+    if (task !== currentTask) {
+      return;
+    }
     error = e;
     data = d;
     status = s;
