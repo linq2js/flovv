@@ -16,7 +16,9 @@ export type StartExpression = { start: Flow | [Flow, any] };
 
 export type RestartExpression = { restart: Flow | [Flow, any] };
 
-export type OnExpression = { on: { [event: string]: Function } };
+export type OnExpression = {
+  on: { [event: string]: Flow | [Flow, any] | YieldExpression };
+};
 
 export type WhenExpression = {
   when:

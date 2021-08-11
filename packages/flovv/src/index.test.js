@@ -164,3 +164,16 @@ test("throttle", async () => {
   store.emit("search");
   expect(callback).toBeCalledTimes(2);
 });
+
+test("yield on", () => {
+  const callback = jest.fn();
+  const store = flovv();
+  function* mainFlow() {
+    yield { on: { click: { call: callback } } };
+  }
+  store.start(mainFlow);
+  store.emit("click");
+  store.emit("click");
+  store.emit("click");
+  expect(callback).toBeCalledTimes(3);
+});

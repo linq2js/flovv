@@ -416,12 +416,22 @@ export function createStore({
         emitter.emit(payload);
       }
     },
-    on(payload, task) {
+    on(payload, task, commands) {
       const entries = Object.entries(payload);
       const results = {};
-      entries.forEach((event, listener) => {
+      entries.forEach(([event, flow]) => {
         const childTask = task.child();
-        childTask.onDispose(emitter.on(event, listener));
+        childTask.onDispose(
+          emitter.on(event, (e) => {
+            if (typeof flow === "function") {
+              processFlow(flow(e), undefined, commands, task);
+            } else if (Array.isArray(flow)) {
+              processFlow(flow[0](flow[1]), undefined, commands, task);
+            } else {
+              processExpression(flow, task, commands, NOOP);
+            }
+          })
+        );
         results[event] = childTask;
         // dispose child task once parent task disposed
         task.onDispose(childTask.dispose);
