@@ -343,21 +343,16 @@ function* HandleUserLoggedIn(params) {
 }
 ```
 
-### yield flow
+### yield context
 
-Retrieving flow object
+Getting and updating shared context between flows
 
 ```js
-function* LoadPosts() {
-  yield { call: LoadPostsApi };
-}
-
 function* MainFlow() {
-  while (true) {
-    yield { when: "cancel_load_posts" };
-    const loadPostsFlow = yield { flow: LoadPosts };
-    loadPostsFlow.cancel();
-  }
+  // update context and retrieve new context values
+  const newContext = yield { context: { a: 1, b: 2 } };
+  const a = yield { context: "a" };
+  const [a, b] = yield { context: ["a", "b"] };
 }
 ```
 

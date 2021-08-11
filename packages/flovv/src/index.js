@@ -317,6 +317,7 @@ function createEmitter() {
 export function createStore({
   state: initialState = EMPTY_OBJECT,
   init,
+  context = {},
   commands: customCommands,
 } = EMPTY_OBJECT) {
   const flows = new Map();
@@ -325,6 +326,27 @@ export function createStore({
   const executedFlows = new WeakSet();
   const commands = {
     ...customCommands,
+    context(payload, task) {
+      const isMultiple = Array.isArray(payload);
+      if (typeof payload === "string" || isMultiple) {
+        const values = (isMultiple ? payload : [payload]).map(
+          (prop) => context[prop]
+        );
+        return task.success(isMultiple ? values : values[0]);
+      }
+      if (!payload || typeof payload !== "object") {
+        throw new Error("Invalid context payload");
+      }
+      context = { ...context, ...payload };
+      task.success(context);
+    },
+    select(payload, task) {
+      const isMultiple = Array.isArray(payload);
+      const results = (isMultiple ? payload : [payload]).map((selector) =>
+        selector(currentState)
+      );
+      task.success(isMultiple ? results : results[0]);
+    },
     flow(payload, task) {
       const isMultiple = Array.isArray(payload);
       const flowArray = (isMultiple ? payload : [payload]).map((x) =>
@@ -711,6 +733,7 @@ export function createTask(parent, onSuccess, onError) {
 export function createFlow(fn, getState, getFlow, commands) {
   let stale = true;
   let status = undefined;
+  let previousTask;
   let currentTask = createTask();
   let data;
   let error;
@@ -761,7 +784,9 @@ export function createFlow(fn, getState, getFlow, commands) {
     },
     cancel(payload, task) {
       if (payload) {
-        if (typeof payload === "function") {
+        if (payload === "previous") {
+          previousTask && previousTask.cancel();
+        } else if (typeof payload === "function") {
           getFlow(payload).cancel();
         } else {
           currentTask.cancel();
@@ -896,6 +921,7 @@ export function createFlow(fn, getState, getFlow, commands) {
     });
     dependencyProps.clear();
     dependencyFlows.clear();
+    previousTask = currentTask;
     currentTask = task;
     stale = false;
     error = undefined;
