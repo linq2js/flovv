@@ -6,6 +6,10 @@ const READY_EVENT = "#ready";
 const FAIL_EVENT = "#fail";
 
 function processNext(iterator, payload) {
+  if (!iterator) return { done: true };
+  if (typeof iterator.next !== "function") {
+    throw new Error(`Expect iterator but got ${typeof iterator}`);
+  }
   try {
     return iterator.next(payload);
   } catch (error) {
