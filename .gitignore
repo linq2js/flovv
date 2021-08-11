@@ -13,4 +13,3 @@ npm-debug.log.*
 **/dist/
 .history
 .env
-react-demo/
