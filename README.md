@@ -221,7 +221,7 @@ function* GetValue() {
 
 ### yield ref
 
-Getting state/flow value but make a reference of that state/flow. The flow will be stale whenever the ref state/flow updated
+Getting state/flow value but make a reference to that state/flow. The flow will be stale whenever the ref state/flow updated
 
 ```js
 function* GetValue() {
@@ -243,7 +243,33 @@ function* Update() {
       state3: promise,
     },
   };
+
+  yield {
+    set: [Flow, flowData],
+  };
 }
+```
+
+### yield use
+
+Import commands
+
+```js
+const sum = (payload, task) => {
+  const [a, b] = payload;
+  task.success(a + b);
+};
+function* Sum() {
+  // yield { sum: [1, 2] } => cannot use sum here because it is still not imported yet
+  yield { use: { sum } };
+  return yield { sum: [1, 2] }; // => 3
+}
+```
+
+In other hand, we can define custom commands when creating store
+
+```js
+const store = flovv({ commands: { sum } });
 ```
 
 ### yield delay
@@ -254,6 +280,37 @@ Delay flow execution in specific time (ms)
 function* AsyncIncrement() {
   yield { delay: 1000 };
   yield { set: { count: (prev) => prev + 1 } };
+}
+```
+
+### yield throttle
+
+```js
+function* mainFlow() {
+  yield {
+    // prevent users click on search button many times in 2s
+    throttle: {
+      ms: 2000,
+      when: "search",
+      flow: { call: SearchApi },
+      payload: searchApiPayload,
+    },
+  };
+}
+```
+
+### yield debounce
+
+```js
+function* mainFlow() {
+  yield {
+    debounce: {
+      ms: 300,
+      when: "search",
+      flow: { call: SearchApi },
+      payload: searchApiPayload,
+    },
+  };
 }
 ```
 
@@ -278,9 +335,9 @@ function* WaitUntilUserLoggedIn() {
 function* HandleUserLoggedIn(params) {
   yield {
     on: {
-      user_logged_in(profile) {
-        console.log(profile);
-      },
+      user_logged_in: UserLoggedInFlow,
+      user_logged_in: [UserLoggedInFlow, payload],
+      user_logged_in: { call: API },
     },
   };
 }

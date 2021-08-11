@@ -6,6 +6,10 @@ const READY_EVENT = "#ready";
 const FAIL_EVENT = "#fail";
 
 function processNext(iterator, payload) {
+  if (!iterator) return { done: true };
+  if (typeof iterator.next !== "function") {
+    throw new Error(`Expect iterator but got ${typeof iterator}`);
+  }
   try {
     return iterator.next(payload);
   } catch (error) {
@@ -107,6 +111,60 @@ function processExpression(expression, task, commands, next) {
     );
   }
 
+  if ("debounce" in expression) {
+    const { ms, when, flow, payload } = expression.debounce;
+    let forkedTask;
+    const inner = function* () {
+      yield { delay: ms };
+      if (typeof flow === "function") {
+        yield* flow(payload);
+      } else {
+        yield flow;
+      }
+    };
+    const outer = function* () {
+      while (true) {
+        yield { when: typeof when === "function" ? when() : when };
+        if (forkedTask) forkedTask.cancel();
+        forkedTask = yield {
+          fork: inner(),
+        };
+      }
+    };
+    return processFork(outer(), commands, task, next);
+  }
+
+  if ("throttle" in expression) {
+    const { ms, when, flow, payload } = expression.throttle;
+    let executing = false;
+    const inner = function* () {
+      const start = new Date().getTime();
+      try {
+        if (typeof flow === "function") {
+          yield* flow(payload);
+        } else {
+          yield flow;
+        }
+        const offset = new Date().getTime() - start;
+        if (offset < ms) {
+          yield { delay: ms - offset };
+        }
+        yield { delay: ms };
+      } finally {
+        executing = false;
+      }
+    };
+    const outer = function* () {
+      while (true) {
+        yield { when: typeof when === "function" ? when() : when };
+        if (executing) continue;
+        executing = true;
+        yield { fork: inner() };
+      }
+    };
+    return processFork(outer(), commands, task, next);
+  }
+
   if ("use" in expression) {
     // custom commands
     return next(undefined, {
@@ -159,7 +217,12 @@ function processExpression(expression, task, commands, next) {
 
   const key = keys[0];
   const childTask = task.child(next);
-  const commandResult = commands[key](expression[key], childTask, commands);
+  const commandResult = commands[key](
+    expression[key],
+    childTask,
+    commands,
+    next
+  );
   // command can produce yield expression
   if (typeof commandResult === "function") {
     const exp = commandResult();
@@ -357,12 +420,22 @@ export function createStore({
         emitter.emit(payload);
       }
     },
-    on(payload, task) {
+    on(payload, task, commands) {
       const entries = Object.entries(payload);
       const results = {};
-      entries.forEach((event, listener) => {
+      entries.forEach(([event, flow]) => {
         const childTask = task.child();
-        childTask.onDispose(emitter.on(event, listener));
+        childTask.onDispose(
+          emitter.on(event, (e) => {
+            if (typeof flow === "function") {
+              processFlow(flow(e), undefined, commands, task);
+            } else if (Array.isArray(flow)) {
+              processFlow(flow[0](flow[1]), undefined, commands, task);
+            } else {
+              processExpression(flow, task, commands, NOOP);
+            }
+          })
+        );
         results[event] = childTask;
         // dispose child task once parent task disposed
         task.onDispose(childTask.dispose);

@@ -16,7 +16,9 @@ export type StartExpression = { start: Flow | [Flow, any] };
 
 export type RestartExpression = { restart: Flow | [Flow, any] };
 
-export type OnExpression = { on: { [event: string]: Function } };
+export type OnExpression = {
+  on: { [event: string]: Flow | [Flow, any] | YieldExpression };
+};
 
 export type WhenExpression = {
   when:
@@ -54,7 +56,25 @@ export type RefExpression = {
   ref: string | Flow | (string | Flow)[];
 };
 
-export type RetExpression = {
+export type ThrottleExpression<TPayload = any> = {
+  throttle: {
+    ms: number;
+    when: WhenExpression["when"];
+    flow: Flow<TPayload>;
+    payload: TPayload;
+  };
+};
+
+export type DebounceExpression<TPayload = any> = {
+  debounce: {
+    ms: number;
+    when: WhenExpression["when"];
+    flow: Flow<TPayload>;
+    payload: TPayload;
+  };
+};
+
+export type RefExpression = {
   ref: string | string[];
 };
 
@@ -81,6 +101,8 @@ export type UseExpression = {
 };
 
 export type YieldExpression =
+  | ThrottleExpression
+  | DebounceExpression
   | UseExpression
   | FlowExpression
   | StartExpression
@@ -90,7 +112,7 @@ export type YieldExpression =
   | ForkExpression
   | SetExpression
   | GetExpression
-  | RetExpression
+  | RefExpression
   | DelayExpression
   | OnExpression
   | CancelExpression

@@ -283,6 +283,37 @@ function* AsyncIncrement() {
 }
 ```
 
+### yield throttle
+
+```js
+function* mainFlow() {
+  yield {
+    // prevent users click on search button many times in 2s
+    throttle: {
+      ms: 2000,
+      when: "search",
+      flow: { call: SearchApi },
+      payload: searchApiPayload,
+    },
+  };
+}
+```
+
+### yield debounce
+
+```js
+function* mainFlow() {
+  yield {
+    debounce: {
+      ms: 300,
+      when: "search",
+      flow: { call: SearchApi },
+      payload: searchApiPayload,
+    },
+  };
+}
+```
+
 ### yield on/emit/when
 
 Hanlding store event
@@ -304,9 +335,9 @@ function* WaitUntilUserLoggedIn() {
 function* HandleUserLoggedIn(params) {
   yield {
     on: {
-      user_logged_in(profile) {
-        console.log(profile);
-      },
+      user_logged_in: UserLoggedInFlow,
+      user_logged_in: [UserLoggedInFlow, payload],
+      user_logged_in: { call: API },
     },
   };
 }

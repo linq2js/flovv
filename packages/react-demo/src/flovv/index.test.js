@@ -119,3 +119,61 @@ test("once", async () => {
   await delay(30);
   expect(callback.mock.calls).toEqual([["b"], ["a"]]);
 });
+
+test("debounce", async () => {
+  const callback = jest.fn();
+  const store = flovv();
+  function* mainFlow() {
+    yield {
+      debounce: {
+        ms: 10,
+        when: "search",
+        flow: { call: callback },
+      },
+    };
+  }
+  store.start(mainFlow);
+  store.emit("search");
+  store.emit("search");
+  await delay(5);
+  store.emit("search");
+  store.emit("search");
+  await delay(15);
+  expect(callback).toBeCalledTimes(1);
+});
+
+test("throttle", async () => {
+  const callback = jest.fn();
+  const store = flovv();
+  function* mainFlow() {
+    yield {
+      throttle: {
+        ms: 15,
+        when: "search",
+        flow: { call: callback },
+      },
+    };
+  }
+  store.start(mainFlow);
+  store.emit("search");
+  store.emit("search");
+  await delay(10);
+  store.emit("search");
+  store.emit("search");
+  await delay(20);
+  store.emit("search");
+  expect(callback).toBeCalledTimes(2);
+});
+
+test("yield on", () => {
+  const callback = jest.fn();
+  const store = flovv();
+  function* mainFlow() {
+    yield { on: { click: { call: callback } } };
+  }
+  store.start(mainFlow);
+  store.emit("click");
+  store.emit("click");
+  store.emit("click");
+  expect(callback).toBeCalledTimes(3);
+});
