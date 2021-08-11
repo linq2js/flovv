@@ -119,7 +119,6 @@ test("fork: error", async () => {
   function* flow() {
     yield { fork: [task1(), task2()] };
     yield { delay: 10 };
-    console.log(11);
     callback();
   }
   const task = createTask(undefined, undefined, onError);
@@ -129,6 +128,17 @@ test("fork: error", async () => {
   expect(task.error.message).toBe("Task1Error");
   expect(callback).toBeCalledTimes(1);
   expect(onError).toBeCalledTimes(1);
+});
+
+test("yield use", () => {
+  const sum = ([a, b], task) => task.success(a + b);
+  function* mainFlow() {
+    yield { use: { sum } };
+    return yield { sum: [1, 2] };
+  }
+  const task = createTask();
+  processFlow(mainFlow(), undefined, undefined, task);
+  expect(task.result).toBe(3);
 });
 
 test("fork: cancelling forking task is not affected to forked tasks", async () => {

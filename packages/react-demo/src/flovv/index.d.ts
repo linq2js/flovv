@@ -1,6 +1,6 @@
-export type Flow<TPayload = any, TResult = void> = (
-  payload?: TPayload
-) => FlowGenerator<TResult>;
+export type Flow<TPayload = any, TResult = void> =
+  | ((payload: TPayload) => FlowGenerator<TResult>)
+  | (() => FlowGenerator<TResult>);
 
 export type FlowGenerator<TResult = any> = Generator<
   YieldExpression | YieldExpression[],
@@ -10,7 +10,11 @@ export type FlowGenerator<TResult = any> = Generator<
 
 export type DelayExpression = { delay: number };
 
-export type FlowExpression = { flow: Flow | Flow[] };
+export type FlowExpression = { start: Flow | Flow[] };
+
+export type StartExpression = { start: Flow | [Flow, any] };
+
+export type RestartExpression = { restart: Flow | [Flow, any] };
 
 export type OnExpression = { on: { [event: string]: Function } };
 
@@ -43,7 +47,11 @@ export type SetExpression = {
 };
 
 export type GetExpression = {
-  get: string | string[];
+  get: string | Flow | (string | Flow)[];
+};
+
+export type RefExpression = {
+  ref: string | Flow | (string | Flow)[];
 };
 
 export type RetExpression = {
@@ -58,8 +66,8 @@ export type CallExpression = {
   call: Function | [Function, ...any[]];
 };
 
-export type TaskExpression = {
-  task: "dispose" | "cancel";
+export type CancelExpression = {
+  cancel: boolean | Flow | null | undefined;
 };
 
 export type Callback<T = any> = (arg?: T) => void;
@@ -68,8 +76,16 @@ export type OnceExpression = {
   once: Flow | Flow[];
 };
 
+export type UseExpression = {
+  use: CommandCollection | CommandCollection[];
+};
+
 export type YieldExpression =
+  | UseExpression
   | FlowExpression
+  | StartExpression
+  | RestartExpression
+  | RefExpression
   | OnceExpression
   | ForkExpression
   | SetExpression
@@ -77,12 +93,12 @@ export type YieldExpression =
   | RetExpression
   | DelayExpression
   | OnExpression
+  | CancelExpression
   | WhenExpression
   | EmitExpression
   | AnyExpression
   | AllExpression
   | DoneExpression
-  | TaskExpression
   | FlowGenerator
   | Promise<any>;
 

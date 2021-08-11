@@ -41,6 +41,10 @@ export function useFlow(flowFn, payload) {
 
   ref.wrapper.payload = payload;
 
+  if (typeof flowFn !== "function") {
+    return ref.wrapper.start().data;
+  }
+
   return ref.wrapper;
 }
 

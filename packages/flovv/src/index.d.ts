@@ -76,7 +76,12 @@ export type OnceExpression = {
   once: Flow | Flow[];
 };
 
+export type UseExpression = {
+  use: CommandCollection | CommandCollection[];
+};
+
 export type YieldExpression =
+  | UseExpression
   | FlowExpression
   | StartExpression
   | RestartExpression

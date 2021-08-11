@@ -30,7 +30,7 @@ function* RemoveTodo(id) {
 
 function TodoApp() {
   const todoList = useFlow(TodoList);
-  const filter = useFlow("filter").start().data;
+  const filter = useFlow("filter");
   const updateFilter = useFlow(UpdateFilter).restart;
   const removeTodo = useFlow(RemoveTodo).restart;
   const { data, loading } = useFlow(FilteredTodoList).start();

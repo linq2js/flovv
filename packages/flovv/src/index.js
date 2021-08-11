@@ -22,16 +22,22 @@ export function processFlow(
   if (task.cancelled || task.error) return;
   const { value, done, error } = processNext(iterator, payload);
   if (error) {
-    return task.handleError(error);
+    return task.fail(error);
   }
   if (done) {
-    return task.handleSuccess(value);
+    return task.success(value);
   }
 
   if (!value || typeof value !== "object") {
     throw new Error("Expression must be object type");
   }
-  const next = (result) => processFlow(iterator, result, commands, task);
+  const next = (result, override = EMPTY_OBJECT) =>
+    processFlow(
+      override.iterator || iterator,
+      result,
+      override.commands || commands,
+      override.task || task
+    );
   return processExpression(value, task, commands, next);
 }
 
@@ -42,8 +48,8 @@ function processFork(fork, commands, task, next) {
     typeof fork === "object" &&
     typeof fork.next !== "function"
   ) {
-    const forkedTask = createTask(undefined, undefined, task.handleError);
-    processExpression(fork, forkedTask, commands, forkedTask.handleSuccess);
+    const forkedTask = createTask(undefined, undefined, task.fail);
+    processExpression(fork, forkedTask, commands, forkedTask.success);
     return next(forkedTask);
   }
 
@@ -53,7 +59,7 @@ function processFork(fork, commands, task, next) {
   const childTasks = isMultipleFork ? (Array.isArray(fork) ? [] : {}) : {};
   forks.forEach(([key, forkedIterator]) => {
     // cancel forked flow
-    const forkedTask = createTask(undefined, undefined, task.handleError);
+    const forkedTask = createTask(undefined, undefined, task.fail);
     // fork iterator
     processFlow(forkedIterator, undefined, commands, forkedTask);
     childTasks[key] = forkedTask;
@@ -99,6 +105,16 @@ function processExpression(expression, task, commands, next) {
       commands,
       next
     );
+  }
+
+  if ("use" in expression) {
+    // custom commands
+    return next(undefined, {
+      commands: Object.assign(
+        {},
+        ...(Array.isArray(expression.use) ? expression.use : [expression.use])
+      ),
+    });
   }
 
   if ("call" in expression) {
@@ -169,7 +185,7 @@ function processAsync(mode, target, task, commands, next) {
     results[key] = mode === "done" ? { result, error } : result;
     if (error && mode !== "done") {
       dispose();
-      return task.handleError(error);
+      return task.fail(error);
     }
     if (mode === "any" || count >= entries.length) {
       dispose();
@@ -191,7 +207,7 @@ function processAsync(mode, target, task, commands, next) {
     );
     childTasks.push(childTask);
     removeDiposeListeners.push(task.onDispose(childTask.dispose));
-    processExpression(expression, childTask, commands, childTask.handleSuccess);
+    processExpression(expression, childTask, commands, childTask.success);
   });
 }
 
@@ -251,7 +267,7 @@ export function createStore({
       const flowArray = (isMultiple ? payload : [payload]).map((x) =>
         getFlow(x)
       );
-      return task.handleSuccess(isMultiple ? flowArray : flowArray[0]);
+      return task.success(isMultiple ? flowArray : flowArray[0]);
     },
     start(payload, task) {
       const [fn, p] = Array.isArray(payload) ? payload : [payload];
@@ -274,7 +290,7 @@ export function createStore({
           return;
         }
 
-        task.handleSuccess();
+        task.success();
       }
       next();
     },
@@ -319,18 +335,16 @@ export function createStore({
         });
       } catch (e) {
         error = e;
-        return task.handleError(e);
+        return task.fail(e);
       } finally {
         if (nextState !== currentState) {
           currentState = nextState;
           handleChange();
         }
         if (!error && promises.length) {
-          Promise.all(promises)
-            .then(task.handleSuccess)
-            .catch(task.handleError);
+          Promise.all(promises).then(task.success).catch(task.fail);
         } else {
-          task.handleSuccess();
+          task.success();
         }
       }
     },
@@ -353,7 +367,7 @@ export function createStore({
         // dispose child task once parent task disposed
         task.onDispose(childTask.dispose);
       });
-      task.handleSuccess(results);
+      task.success(results);
     },
     when(payload, task) {
       const events =
@@ -367,7 +381,7 @@ export function createStore({
           return emitter.on(target, (e) => {
             if (typeof check === "function" && !check(e)) return;
             cleanup();
-            task.handleSuccess(e);
+            task.success(e);
           });
         }
         // when: flow => watch flow state
@@ -388,7 +402,7 @@ export function createStore({
               f.error !== prev.error
             ) {
               cleanup();
-              task.handleSuccess(f);
+              task.success(f);
             }
           });
         }
@@ -414,9 +428,9 @@ export function createStore({
     const flow = getFlow(flowFn);
     const result = flow.$$update(data);
     if (result && typeof result.then === "function") {
-      return result.then(task.handleSuccess, task.handleError);
+      return result.then(task.success, task.fail);
     }
-    task.handleSuccess(flow.data);
+    task.success(flow.data);
   }
 
   function handleChange() {
@@ -548,18 +562,18 @@ export function createTask(parent, onSuccess, onError) {
       if (status || disposed) return NOOP;
       return emitter.on("cancel", listener);
     },
-    handleSuccess(value) {
+    success(value) {
       if (status || disposed || task.cancelled) return;
       status = "success";
       result = value;
       return onSuccess && onSuccess(value);
     },
-    handleError(value) {
+    fail(value) {
       if (status || disposed || task.cancelled) return;
       status = "fail";
       error = value;
       if (onError) return onError(value);
-      if (parent) return parent.handleError(value);
+      if (parent) return parent.fail(value);
       throw value;
     },
     child(onSuccess, onError) {
@@ -608,7 +622,7 @@ export function createTask(parent, onSuccess, onError) {
               return;
             dispose();
             if (onError) return onError(error);
-            return task.handleError(error);
+            return task.fail(error);
           }),
         {
           cancel,
@@ -680,7 +694,7 @@ export function createFlow(fn, getState, getFlow, commands) {
           currentTask.cancel();
         }
       }
-      return task.handleSuccess();
+      return task.success();
     },
   };
 
@@ -712,9 +726,9 @@ export function createFlow(fn, getState, getFlow, commands) {
           dependencyProps.set(prop, values[index])
         );
       }
-      if (error) return task.handleError(error);
+      if (error) return task.fail(error);
       resolveStateValues(props, values);
-      task.handleSuccess(isMultiple ? values : values[0]);
+      task.success(isMultiple ? values : values[0]);
     });
   }
 
@@ -792,11 +806,11 @@ export function createFlow(fn, getState, getFlow, commands) {
     const task = createTask(
       undefined,
       (result) => {
-        inputTask && inputTask.handleSuccess(result);
+        inputTask && inputTask.success(result);
         return handleChange("success", result, undefined, task);
       },
       (error) => {
-        inputTask && inputTask.handleError(error);
+        inputTask && inputTask.fail(error);
         return handleChange("fail", undefined, error, task);
       }
     );
