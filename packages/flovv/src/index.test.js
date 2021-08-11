@@ -141,3 +141,26 @@ test("debounce", async () => {
   await delay(15);
   expect(callback).toBeCalledTimes(1);
 });
+
+test("throttle", async () => {
+  const callback = jest.fn();
+  const store = flovv();
+  function* mainFlow() {
+    yield {
+      throttle: {
+        ms: 15,
+        when: "search",
+        flow: { call: callback },
+      },
+    };
+  }
+  store.start(mainFlow);
+  store.emit("search");
+  store.emit("search");
+  await delay(10);
+  store.emit("search");
+  store.emit("search");
+  await delay(20);
+  store.emit("search");
+  expect(callback).toBeCalledTimes(2);
+});

@@ -109,6 +109,7 @@ function processExpression(expression, task, commands, next) {
 
   if ("debounce" in expression) {
     const { ms, when, flow, payload } = expression.debounce;
+    let forkedTask;
     const inner = function* () {
       yield { delay: ms };
       if (typeof flow === "function") {
@@ -118,13 +119,43 @@ function processExpression(expression, task, commands, next) {
       }
     };
     const outer = function* () {
-      let forkedTask;
       while (true) {
-        yield { when };
+        yield { when: typeof when === "function" ? when() : when };
         if (forkedTask) forkedTask.cancel();
         forkedTask = yield {
           fork: inner(),
         };
+      }
+    };
+    return processFork(outer(), commands, task, next);
+  }
+
+  if ("throttle" in expression) {
+    const { ms, when, flow, payload } = expression.throttle;
+    let executing = false;
+    const inner = function* () {
+      const start = new Date().getTime();
+      try {
+        if (typeof flow === "function") {
+          yield* flow(payload);
+        } else {
+          yield flow;
+        }
+        const offset = new Date().getTime() - start;
+        if (offset < ms) {
+          yield { delay: ms - offset };
+        }
+        yield { delay: ms };
+      } finally {
+        executing = false;
+      }
+    };
+    const outer = function* () {
+      while (true) {
+        yield { when: typeof when === "function" ? when() : when };
+        if (executing) continue;
+        executing = true;
+        yield { fork: inner() };
       }
     };
     return processFork(outer(), commands, task, next);
