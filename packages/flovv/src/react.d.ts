@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { Store, Flow, Status } from "./index";
+import { Store, Flow, FlowGenerator, Status, YieldExpression } from "./index";
 
 export interface FlowRef<TPayload = any, TData = any> {
   readonly loading: boolean;
@@ -18,12 +18,11 @@ export function useStore(): Store;
 export const Provider: FC<{ store: Store; children?: any }>;
 
 export interface UseFlow {
+  <TResult = any>(flow: string): FlowRef<unknown, TResult>;
   <TPayload, TResult>(flow: Flow<TPayload, TResult>): FlowRef<
     TPayload,
     TResult
   >;
-
-  <T = any>(state: string): FlowRef<any, T>;
 }
 
 export const useFlow: UseFlow;

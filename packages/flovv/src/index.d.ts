@@ -47,7 +47,11 @@ export type SetExpression = {
 };
 
 export type GetExpression = {
-  get: string | string[];
+  get: string | Flow | (string | Flow)[];
+};
+
+export type RefExpression = {
+  ref: string | Flow | (string | Flow)[];
 };
 
 export type RetExpression = {
@@ -76,6 +80,7 @@ export type YieldExpression =
   | FlowExpression
   | StartExpression
   | RestartExpression
+  | RefExpression
   | OnceExpression
   | ForkExpression
   | SetExpression
