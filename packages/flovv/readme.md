@@ -221,7 +221,7 @@ function* GetValue() {
 
 ### yield ref
 
-Getting state/flow value but make a reference of that state/flow. The flow will be stale whenever the ref state/flow updated
+Getting state/flow value but make a reference to that state/flow. The flow will be stale whenever the ref state/flow updated
 
 ```js
 function* GetValue() {
