@@ -243,7 +243,33 @@ function* Update() {
       state3: promise,
     },
   };
+
+  yield {
+    set: [Flow, flowData],
+  };
 }
+```
+
+### yield use
+
+Import commands
+
+```js
+const sum = (payload, task) => {
+  const [a, b] = payload;
+  task.success(a + b);
+};
+function* Sum() {
+  // yield { sum: [1, 2] } => cannot use sum here because it is still not imported yet
+  yield { use: { sum } };
+  return yield { sum: [1, 2] }; // => 3
+}
+```
+
+In other hand, we can define custom commands when creating store
+
+```js
+const store = flovv({ commands: { sum } });
 ```
 
 ### yield delay
