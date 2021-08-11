@@ -9,7 +9,7 @@ module.exports = {
           "**/*.test.js", // ignore test files only
         ]
       : [],
-  sourceMaps: process.env.BABEL_NO_SOURCE_MAPS ? false : "inline",
+  sourceMaps: false,
   presets: [
     [
       "@babel/preset-env",

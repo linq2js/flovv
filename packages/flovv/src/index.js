@@ -1,5 +1,5 @@
 const EMPTY_OBJECT = {};
-// const EMPTY_ARRAY = [];
+//  const EMPTY_ARRAY = [];
 const NOOP = () => {};
 const CHANGE_EVENT = "#change";
 const READY_EVENT = "#ready";
