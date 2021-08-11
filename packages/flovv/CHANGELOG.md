@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.3.0](https://github.com/linq2js/flovv/compare/flovv@0.2.1...flovv@0.3.0) (2021-08-11)
+
+
+### Features
+
+* add yield context ([43baa40](https://github.com/linq2js/flovv/commit/43baa4031d66ce99dd777777c1b4e026ae691a5a))
+
+
+
+
+
 ## [0.2.1](https://github.com/linq2js/flovv/compare/flovv@0.2.0...flovv@0.2.1) (2021-08-11)
 
 **Note:** Version bump only for package flovv
