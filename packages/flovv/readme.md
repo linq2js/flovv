@@ -29,9 +29,8 @@ const store = flovv({ state: { count: 1 } });
 // get count value flow
 function* GetCount() {
   // if we want to read count value, just call { get: "count" }
-  // if we use @ prefix, the GetCount flow will be stale whenever the count state is changed
-  // and all components that using GetCount flow, are rerendered
-  return yield { get: "@count" };
+  // using { ref: "count" } means the GetCount flow will be stale whenever count value changed
+  return yield { ref: "count" };
 }
 // increase count flow
 function* Increment() {
@@ -63,18 +62,171 @@ function App() {
 }
 ```
 
-## API References
+## Examples
+
+### Optimistic update / mutating flow data
+
+```jsx
+const store = flovv({ state: { filter: "all" } });
+
+function* TodoList() {
+  const todos = yield fetch("https://jsonplaceholder.typicode.com/todos").then(
+    (res) => res.json()
+  );
+  return todos.slice(0, 20);
+}
+
+function* FilteredTodoList() {
+  // make ref to filter value and TodoList
+  // once filter/TodoList changed, the FilteredTodoList flow will be stale
+  const filter = yield { ref: "filter" };
+  const todos = yield { ref: TodoList };
+  if (filter === "completed") return todos.filter((x) => x.completed);
+  if (filter === "active") return todos.filter((x) => !x.completed);
+  return todos;
+}
+
+function* UpdateFilter(filter) {
+  yield { set: { filter } };
+}
+
+function* RemoveTodo(id) {
+  // call api to remove todo
+  // perform optimistic update
+  yield { set: [TodoList, (todos) => todos.filter((x) => x.id !== id)] };
+}
+
+function TodoApp() {
+  const todoList = useFlow(TodoList);
+  const filter = useFlow("filter").start().data;
+  const updateFilter = useFlow(UpdateFilter).restart;
+  const removeTodo = useFlow(RemoveTodo).restart;
+  const { data, loading } = useFlow(FilteredTodoList).start();
+  if (loading) return "Loading...";
+
+  return (
+    <>
+      <button onClick={() => todoList.restart()}>Reload</button>
+      <p>
+        <label onClick={() => updateFilter("all")}>
+          <input key={filter} type="radio" defaultChecked={filter === "all"} />{" "}
+          All
+        </label>
+        <label onClick={() => updateFilter("active")}>
+          <input
+            key={filter}
+            type="radio"
+            defaultChecked={filter === "active"}
+          />{" "}
+          Active
+        </label>
+        <label onClick={() => updateFilter("completed")}>
+          <input
+            key={filter}
+            type="radio"
+            defaultChecked={filter === "completed"}
+          />{" "}
+          Completed
+        </label>
+      </p>
+      <ul>
+        {data.map((todo) => (
+          <li
+            key={todo.id}
+            onClick={() => removeTodo(todo.id)}
+            style={{ opacity: todo.completed ? 0.5 : 1, cursor: "pointer" }}
+          >
+            {todo.title}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+```
+
+### Using flow to load async data
+
+```jsx
+function* LoadUserList() {
+  // delay in 500ms to see loading effect
+  yield { delay: 500 };
+  const res = yield fetch("https://jsonplaceholder.typicode.com/users");
+  const users = yield res.json();
+  return users;
+}
+
+function UserList() {
+  const { data, loading } = useFlow(LoadUserList).start();
+  if (loading) return "Loading...";
+  return (
+    <ul>
+      {data.map((user) => (
+        <li>
+          ({user.id}) {user.name}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Flovv's API References
+
+### createStore(options) => Store
+
+Creating store with specific options. The options has following props:
+
+- state: Specific initial state for the store
+- commands: Specific custom commands for the store. The command can be called by using yield { commandName: commandPayload }
+
+### store.state
+
+Retrieving current state of the store
+
+### store.emit(event, payload)
+
+Emitting store event
+
+### store.on(event, listener) => removeListenerFn
+
+Registering event listener
+
+### store.flow(flowFn) => Flow
+
+Getting flow object
+
+### store.watch(stateChangeWatcher) => removeWatcherFn
+
+Watching store state
+
+### store.start(flowFn, payload) => FlowData
+
+Starting specific flow with payload
+
+### store.restart(flowFn, payload) => FlowData
+
+Restarting specific flow with payload
 
 ### yield get
 
-Getting state value
+Getting state/flow value
 
 ```js
-function* GetState() {
-  // without stale option
-  const count = yield { get: "count" };
-  // with stale option
-  const count = yield { get: "@count" };
+function* GetValue() {
+  const countState = yield { get: "count" };
+  const flowData = yield { get: Flow };
+}
+```
+
+### yield ref
+
+Getting state/flow value but make a reference of that state/flow. The flow will be stale whenever the ref state/flow updated
+
+```js
+function* GetValue() {
+  const countState = yield { ref: "count" };
+  const flowData = yield { ref: Flow };
 }
 ```
 
@@ -154,7 +306,7 @@ function* MainFlow() {
 
 ### yield all
 
-Waiting for multiple async actions/flows until these get done or error
+Waiting for multiple async actions/flows until they get done or error
 
 ```js
 function* Flow1() {}
@@ -170,7 +322,7 @@ function* MainFlow() {
 
 ### yield any
 
-Waiting for multiple async actions/flows until one of these get done or error
+Waiting for multiple async actions/flows until one of them get done or error
 
 ```js
 function* MainFlow() {
@@ -188,7 +340,7 @@ function* MainFlow() {
 
 ### yield done
 
-Waiting for multiple async actions/flows until these get done even one of these gets an error
+Waiting for multiple async actions/flows until they get done even one of them gets an error
 
 ```js
 function* MainFlow() {
@@ -242,3 +394,41 @@ function* MainFlow() {
   const [task1, task2] = yield { fork: [Flow1(), Flow2()] };
 }
 ```
+
+## Flovv/React's API References
+
+### Provider
+
+```jsx
+<Provider store={store}>...children</Provider>
+```
+
+### useFlow(flow): FlowRef
+
+A React hook to bind specific flow to component. The component will rerender whenever flow status is updated
+
+### flowRef.loading
+
+Retrieving loading status of the flow
+
+### flowRef.status (loading/fail/success/undefined)
+
+### flowRef.fail
+
+### flowRef.success
+
+### flowRef.error
+
+Retrieving an error of the flow if any
+
+### flowRef.data
+
+Retrieving a data of the flow. The data is returning value of flow function after executing
+
+### flowRef.start(payload)
+
+Starting the flow and returning flowRef
+
+### flowRef.restart(payload)
+
+Restarting the flow and returning flowRef

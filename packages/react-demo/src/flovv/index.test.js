@@ -13,10 +13,38 @@ test("get state by flow", () => {
   expect(store.start(mainFlow)).toBe(1);
 });
 
+test("ref: flow", async () => {
+  const store = flovv({ state: { value: 1 } });
+
+  function* updateFlow() {
+    yield { set: { value: 2 } };
+  }
+  function* getValue() {
+    yield { delay: 10 };
+    return yield { ref: "value" };
+  }
+  function* doubleValue() {
+    const value = yield { ref: getValue };
+    return value * 2;
+  }
+
+  const doubleValueFlow = store.flow(doubleValue);
+
+  await doubleValueFlow.start();
+
+  expect(doubleValueFlow.data).toBe(2);
+
+  store.start(updateFlow);
+
+  await doubleValueFlow.start();
+
+  expect(doubleValueFlow.data).toBe(4);
+});
+
 test("get state by flow (dependency state)", () => {
   const store = flovv({ state: { state1: 1, state2: 2 } });
   function* mainFlow() {
-    return yield { get: "@state1" };
+    return yield { ref: "state1" };
   }
   expect(store.start(mainFlow)).toBe(1);
 });
@@ -26,7 +54,7 @@ test("flow data is cached until it is stale", () => {
   const callback = jest.fn();
   function* mainFlow() {
     callback();
-    const state1 = yield { get: "@state1" };
+    const state1 = yield { ref: "state1" };
     return state1 * 2;
   }
   function* updateState1() {

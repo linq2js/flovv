@@ -248,7 +248,9 @@ export function createStore({
     ...customCommands,
     flow(payload, task) {
       const isMultiple = Array.isArray(payload);
-      const flowArray = (isMultiple ? payload : [payload]).map((x) => flow(x));
+      const flowArray = (isMultiple ? payload : [payload]).map((x) =>
+        getFlow(x)
+      );
       return task.handleSuccess(isMultiple ? flowArray : flowArray[0]);
     },
     // start(payload, task) {
@@ -277,6 +279,12 @@ export function createStore({
       next();
     },
     set(payload, task) {
+      if (Array.isArray(payload)) {
+        if (typeof payload[0] === "function") {
+          return updateFlowData(payload[0], payload[1], task);
+        }
+        payload = { [payload[0]]: payload[1] };
+      }
       let nextState = currentState;
       let error;
       const promises = [];
@@ -364,7 +372,7 @@ export function createStore({
         }
         // when: flow => watch flow state
         if (typeof target === "function") {
-          const f = flow(target);
+          const f = getFlow(target);
           const prev = {
             data: f.data,
             status: f.status,
@@ -402,6 +410,15 @@ export function createStore({
     return currentState;
   }
 
+  function updateFlowData(flowFn, data, task) {
+    const flow = getFlow(flowFn);
+    const result = flow.$$update(data);
+    if (result && typeof result.then === "function") {
+      return result.then(task.handleSuccess, task.handleError);
+    }
+    task.handleSuccess(flow.data);
+  }
+
   function handleChange() {
     flows.forEach((flow) => {
       flow.$$stateChange(currentState);
@@ -413,7 +430,7 @@ export function createStore({
     return emitter.on(CHANGE_EVENT, watcher);
   }
 
-  function flow(fn) {
+  function getFlow(fn) {
     if (typeof fn === "string") {
       const cacheKey = fn.replace(/\s+/g, "");
       let cachedFn = fnCache.get(cacheKey);
@@ -422,11 +439,11 @@ export function createStore({
         if (states.length === 1) {
           const state = states[0];
           cachedFn = function* () {
-            return yield { get: state };
+            return yield { ref: state };
           };
         } else {
           cachedFn = function* () {
-            return yield { get: states };
+            return yield { ref: states };
           };
         }
         fnCache.set(cacheKey, cachedFn);
@@ -436,18 +453,18 @@ export function createStore({
 
     let f = flows.get(fn);
     if (!f) {
-      f = createFlow(fn, getState, commands);
+      f = createFlow(fn, getState, getFlow, commands);
       flows.set(fn, f);
     }
     return f;
   }
 
   function start(fn, payload) {
-    return flow(fn).start(payload).data;
+    return getFlow(fn).start(payload).data;
   }
 
   function restart(fn, payload) {
-    return flow(fn).restart(payload).data;
+    return getFlow(fn).restart(payload).data;
   }
 
   if (typeof init === "function") {
@@ -468,7 +485,7 @@ export function createStore({
     on: emitter.on,
     emit: emitter.emit,
     watch,
-    flow,
+    flow: getFlow,
     start,
     restart,
   };
@@ -604,13 +621,14 @@ export function createTask(parent, onSuccess, onError) {
   return task;
 }
 
-export function createFlow(fn, getState, commands) {
+export function createFlow(fn, getState, getFlow, commands) {
   let stale = true;
   let status = "pending";
   let currentTask = createTask();
   let data;
   let error;
   let promise;
+  const dependencyFlows = new Set();
   const dependencyProps = new Map();
   const emitter = createEmitter();
   const flow = {
@@ -630,6 +648,16 @@ export function createFlow(fn, getState, commands) {
     catch: (onReject) => getPromise().catch(onReject),
     cancel,
     $$stateChange: handleStateChange,
+    $$update(value) {
+      if (status === "loading") {
+        return getPromise().finally(() => flow.$$update(value));
+      }
+      currentTask = createTask();
+      status = "success";
+      data = typeof value === "function" ? value(data) : value;
+      error = null;
+      notifyChange();
+    },
     start,
     restart,
     watch,
@@ -638,21 +666,81 @@ export function createFlow(fn, getState, commands) {
 
   commands = {
     ...commands,
+    ref(payload, task) {
+      return resolveValues(true, payload, task);
+    },
     get(payload, task) {
-      const state = getState();
-      const isMultipleStates = Array.isArray(payload);
-      const propArray = isMultipleStates ? payload : [payload];
-      const values = propArray.map((prop) => {
-        // get value and track the prop
-        if (prop[0] === "@") {
-          prop = prop.substr(1);
-          dependencyProps.set(prop, state[prop]);
-        }
-        return state[prop];
-      });
-      return task.handleSuccess(isMultipleStates ? values : values[0]);
+      return resolveValues(false, payload, task);
     },
   };
+
+  function resolveValues(isRef, payload, task) {
+    const isMultiple = Array.isArray(payload);
+    const targetArray = isMultiple ? payload : [payload];
+    const values = [];
+    const flows = [];
+    const props = [];
+
+    targetArray.forEach((target, index) => {
+      // get value and track the prop
+      if (typeof target === "string") {
+        return props.push([index, target]);
+      }
+      const flow = getFlow(target);
+      flows.push([index, flow]);
+      flow.start();
+    });
+
+    resolveFlowData(flows, values, (error) => {
+      if (isRef) {
+        flows.forEach(([, flow]) => {
+          if (dependencyFlows.has(flow)) return;
+          dependencyFlows.add(flow);
+          flow.watch(handleFlowChange);
+        });
+        props.forEach(([index, prop]) =>
+          dependencyProps.set(prop, values[index])
+        );
+      }
+      if (error) return task.handleError(error);
+      resolveStateValues(props, values);
+      task.handleSuccess(isMultiple ? values : values[0]);
+    });
+  }
+
+  function resolveFlowData(flows, values, onDone) {
+    function resolve() {
+      const loadingFlows = flows.filter(
+        ([, flow]) => flow.status === "loading"
+      );
+      if (!loadingFlows.length) {
+        let lastError;
+        flows.forEach(([index, flow]) => {
+          if (flow.status === "fail") {
+            lastError = flow.error;
+            return;
+          }
+          values[index] = flow.data;
+        });
+        return onDone(lastError);
+      }
+      // avoid to promise looping
+      setTimeout(() => {
+        Promise.all(loadingFlows).finally(resolve);
+      });
+    }
+    resolve();
+  }
+
+  function resolveStateValues(props, values) {
+    const state = getState();
+    props.map(([index, prop]) => (values[index] = state[prop]));
+  }
+
+  function handleFlowChange() {
+    stale = true;
+    notifyChange();
+  }
 
   function notifyChange() {
     promise = null;
@@ -672,7 +760,7 @@ export function createFlow(fn, getState, commands) {
     if (status === "fail") {
       promise = Promise.reject(error);
     } else if (status === "loading") {
-      const p = (promise = new Promise((resolve, reject) => {
+      const p = new Promise((resolve, reject) => {
         const removeListener = emitter.on(CHANGE_EVENT, () => {
           removeListener();
           if (p === promise) {
@@ -680,7 +768,8 @@ export function createFlow(fn, getState, commands) {
           }
           getPromise().then(resolve, reject);
         });
-      }));
+      });
+      promise = p;
     } else {
       promise = Promise.resolve(data);
     }
@@ -707,6 +796,7 @@ export function createFlow(fn, getState, commands) {
       notifyChange();
     });
     dependencyProps.clear();
+    dependencyFlows.clear();
     currentTask = task;
     stale = false;
     error = undefined;

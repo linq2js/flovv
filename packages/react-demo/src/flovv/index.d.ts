@@ -38,20 +38,16 @@ export type DoneExpression = {
   done: { [key: string]: YieldExpression } | YieldExpression[];
 };
 
-export type StartExpression = {
-  start: Flow | [Flow, any];
-};
-
-export type RestartExpression = {
-  restart: Flow | [Flow, any];
-};
-
 export type SetExpression = {
-  set: { [state: string]: ((prev: any) => any) | any };
+  set: { [state: string]: ((prev: any) => any) | any } | [Flow | string, any];
 };
 
 export type GetExpression = {
   get: string | string[];
+};
+
+export type RetExpression = {
+  ref: string | string[];
 };
 
 export type ForkExpression = {
@@ -74,12 +70,11 @@ export type OnceExpression = {
 
 export type YieldExpression =
   | FlowExpression
-  | StartExpression
-  | RestartExpression
   | OnceExpression
   | ForkExpression
   | SetExpression
   | GetExpression
+  | RetExpression
   | DelayExpression
   | OnExpression
   | WhenExpression

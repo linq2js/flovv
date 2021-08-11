@@ -39,11 +39,15 @@ export type DoneExpression = {
 };
 
 export type SetExpression = {
-  set: { [state: string]: ((prev: any) => any) | any };
+  set: { [state: string]: ((prev: any) => any) | any } | [Flow | string, any];
 };
 
 export type GetExpression = {
   get: string | string[];
+};
+
+export type RetExpression = {
+  ref: string | string[];
 };
 
 export type ForkExpression = {
@@ -70,6 +74,7 @@ export type YieldExpression =
   | ForkExpression
   | SetExpression
   | GetExpression
+  | RetExpression
   | DelayExpression
   | OnExpression
   | WhenExpression
