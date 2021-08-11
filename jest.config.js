@@ -1,4 +1,4 @@
-const ignorePatterns = ["node_modules/", "dist/"];
+const ignorePatterns = ["node_modules/", "dist/", "react-demo/"];
 
 module.exports = {
   collectCoverage: true,

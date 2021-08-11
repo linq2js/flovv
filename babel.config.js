@@ -39,7 +39,7 @@ module.exports = {
           "module-resolver",
           {
             cwd: "packagejson",
-            resolvePath(sourcePath, currentFile, opts) {
+            resolvePath(sourcePath, currentFile) {
               if (sourcePath === "shared") {
                 const parts = currentFile.split("/");
                 while (parts.length) {
