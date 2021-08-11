@@ -1,6 +1,6 @@
-export type Flow<TPayload = any, TResult = void> = (
-  payload?: TPayload
-) => FlowGenerator<TResult>;
+export type Flow<TPayload = any, TResult = void> =
+  | ((payload: TPayload) => FlowGenerator<TResult>)
+  | (() => FlowGenerator<TResult>);
 
 export type FlowGenerator<TResult = any> = Generator<
   YieldExpression | YieldExpression[],
