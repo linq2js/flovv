@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.4.0](https://github.com/linq2js/flovv/compare/react-demo@0.3.1...react-demo@0.4.0) (2021-08-12)
+
+
+### Features
+
+* add support suspense and errorBoundary ([e18e122](https://github.com/linq2js/flovv/commit/e18e12234fae94ff7ba8cfd5417e3e3bbdd1f49e))
+
+
+
+
+
 ## [0.3.1](https://github.com/linq2js/flovv/compare/react-demo@0.3.0...react-demo@0.3.1) (2021-08-11)
 
 **Note:** Version bump only for package react-demo
