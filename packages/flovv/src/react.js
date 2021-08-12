@@ -10,15 +10,24 @@ import {
 const storeContext = createContext();
 
 export function useStore() {
-  return useContext(storeContext);
+  return useContext(storeContext).store;
 }
 
-export function Provider({ children, store }) {
-  return createElement(storeContext.Provider, { value: store, children });
+export function Provider({ children, store, suspense, errorBoundary }) {
+  const status = store.status;
+  if (status === "loading") {
+    if (suspense) throw new Promise((resolve) => store.ready(resolve));
+  } else if (status === "fail") {
+    if (errorBoundary) throw store.error;
+  }
+  return createElement(storeContext.Provider, {
+    value: { store, suspense, errorBoundary },
+    children,
+  });
 }
 
 export function useFlow(flowFn, payload) {
-  const store = useStore();
+  const { store, suspense, errorBoundary } = useContext(storeContext);
   const flow = store.flow(flowFn);
   const ref = useRef({}).current;
   const rerender = useState()[1];
@@ -39,7 +48,11 @@ export function useFlow(flowFn, payload) {
     };
   }, [ref.wrapper]);
 
-  ref.wrapper.payload = payload;
+  Object.assign(ref.wrapper, {
+    payload,
+    suspense,
+    errorBoundary,
+  });
 
   if (typeof flowFn !== "function") {
     return ref.wrapper.start().data;
@@ -59,6 +72,11 @@ function createFlowWrapper(flow, rerender) {
       return flow.stale;
     },
     get data() {
+      if (flow.status === "loading") {
+        if (wrapper.suspense) throw flow;
+      } else if (flow.status === "fail") {
+        if (wrapper.errorBoundary) throw flow.error;
+      }
       return flow.data;
     },
     cancel() {

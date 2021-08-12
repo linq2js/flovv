@@ -177,3 +177,66 @@ test("yield on", () => {
   store.emit("click");
   expect(callback).toBeCalledTimes(3);
 });
+
+test("yield select", () => {
+  const callback = jest.fn();
+  const store = flovv({ state: { a: 1, b: 2 } });
+  const sum = ({ a, b }) => a + b;
+  function* mainFlow() {
+    callback(yield { select: sum });
+    yield { set: { a: 2 } };
+    callback(yield { select: sum });
+    callback(yield { select: [(state) => state.a, (state) => state.b] });
+  }
+  store.start(mainFlow);
+  expect(callback.mock.calls).toEqual([[3], [4], [[2, 2]]]);
+});
+
+test("yield cancel previous", async () => {
+  const callback = jest.fn();
+  const store = flovv();
+  function* mainFlow() {
+    yield { cancel: "previous" };
+    yield { delay: 15 };
+    callback();
+  }
+  store.restart(mainFlow);
+  store.restart(mainFlow);
+  await delay(20);
+  expect(callback).toBeCalledTimes(1);
+});
+
+test("yield context", () => {
+  const callback = jest.fn();
+  const store = flovv({ context: { a: 1, b: 2, c: 3 } });
+  function* mainFlow() {
+    yield { context: { a: 2, c: 5 } };
+    callback(yield { context: "a" }, yield { context: ["b", "c"] });
+  }
+  store.start(mainFlow);
+  expect(callback.mock.calls).toEqual([[2, [2, 5]]]);
+});
+
+test("store ready", async () => {
+  const callback = jest.fn();
+  function* mainFlow() {
+    yield { delay: 10 };
+  }
+  const store = flovv({ init: mainFlow });
+  store.ready(callback);
+  await delay(15);
+  expect(callback).toBeCalledTimes(1);
+});
+
+test("store not ready", async () => {
+  const callback = jest.fn();
+  function* mainFlow() {
+    yield { delay: 10 };
+    throw new Error("fail");
+  }
+  const store = flovv({ init: mainFlow });
+  store.ready(callback);
+  await delay(20);
+  expect(callback).toBeCalledTimes(0);
+  expect(store.error.message).toBe("fail");
+});

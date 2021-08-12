@@ -78,8 +78,16 @@ export type RefExpression = {
   ref: string | string[];
 };
 
+export type SelectExpression = {
+  select: ((state: any) => any) | ((state: any) => any)[];
+};
+
 export type ForkExpression = {
   fork: FlowGenerator | FlowGenerator[] | YieldExpression;
+};
+
+export type ContextExpression = {
+  context: string | string[] | { [key: string]: any };
 };
 
 export type CallExpression = {
@@ -87,7 +95,7 @@ export type CallExpression = {
 };
 
 export type CancelExpression = {
-  cancel: boolean | Flow | null | undefined;
+  cancel: "previous" | boolean | Flow | null | undefined;
 };
 
 export type Callback<T = any> = (arg?: T) => void;
@@ -101,6 +109,7 @@ export type UseExpression = {
 };
 
 export type YieldExpression =
+  | SelectExpression
   | ThrottleExpression
   | DebounceExpression
   | UseExpression
@@ -126,6 +135,8 @@ export type YieldExpression =
 
 export interface Store<TState> {
   readonly state: TState;
+  readonly status: Status;
+  readonly error: Error;
   watch(watcher: Callback<TState>);
   emit(event: string, payload?: any): void;
   on(event: string, listener: Callback): void;
@@ -140,6 +151,7 @@ export interface Store<TState> {
     definition: Flow<TPayload, TResult>,
     payload?: TPayload
   ): TResult;
+  ready(listener: Function): Function;
 }
 export type Status = undefined | "loading" | "success" | "fail";
 
@@ -165,9 +177,17 @@ export type Command<TPayload> = (
   commands?: CommandCollection
 ) => (() => YieldExpression | YieldExpression[]) | void | Promise<void>;
 
+export interface Task<TResult = any> {
+  readonly error: Error;
+  readonly status: Status;
+  success(result: TResult): void;
+  fail(error: Error): void;
+}
+
 export interface Options<TState> {
   state?: TState;
   init?: Flow;
+  context?: { [key: string]: any };
   commands?: CommandCollection;
 }
 

@@ -135,6 +135,8 @@ export type YieldExpression =
 
 export interface Store<TState> {
   readonly state: TState;
+  readonly status: Status;
+  readonly error: Error;
   watch(watcher: Callback<TState>);
   emit(event: string, payload?: any): void;
   on(event: string, listener: Callback): void;
@@ -149,6 +151,7 @@ export interface Store<TState> {
     definition: Flow<TPayload, TResult>,
     payload?: TPayload
   ): TResult;
+  ready(listener: Function): Function;
 }
 export type Status = undefined | "loading" | "success" | "fail";
 
@@ -173,6 +176,13 @@ export type Command<TPayload> = (
   task?: Task,
   commands?: CommandCollection
 ) => (() => YieldExpression | YieldExpression[]) | void | Promise<void>;
+
+export interface Task<TResult = any> {
+  readonly error: Error;
+  readonly status: Status;
+  success(result: TResult): void;
+  fail(error: Error): void;
+}
 
 export interface Options<TState> {
   state?: TState;

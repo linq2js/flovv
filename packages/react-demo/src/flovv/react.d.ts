@@ -15,7 +15,12 @@ export interface FlowRef<TPayload = any, TData = any> {
 
 export function useStore(): Store;
 
-export const Provider: FC<{ store: Store; children?: any }>;
+export const Provider: FC<{
+  store: Store;
+  suspense?: boolean;
+  errorBoundary?: boolean;
+  children?: any;
+}>;
 
 export interface UseFlow {
   <TResult = any>(flow: string): FlowRef<unknown, TResult>;

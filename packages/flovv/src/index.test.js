@@ -216,3 +216,27 @@ test("yield context", () => {
   store.start(mainFlow);
   expect(callback.mock.calls).toEqual([[2, [2, 5]]]);
 });
+
+test("store ready", async () => {
+  const callback = jest.fn();
+  function* mainFlow() {
+    yield { delay: 10 };
+  }
+  const store = flovv({ init: mainFlow });
+  store.ready(callback);
+  await delay(15);
+  expect(callback).toBeCalledTimes(1);
+});
+
+test("store not ready", async () => {
+  const callback = jest.fn();
+  function* mainFlow() {
+    yield { delay: 10 };
+    throw new Error("fail");
+  }
+  const store = flovv({ init: mainFlow });
+  store.ready(callback);
+  await delay(20);
+  expect(callback).toBeCalledTimes(0);
+  expect(store.error.message).toBe("fail");
+});

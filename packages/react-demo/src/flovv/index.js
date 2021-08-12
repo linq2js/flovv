@@ -1,9 +1,9 @@
 const EMPTY_OBJECT = {};
 //  const EMPTY_ARRAY = [];
 const NOOP = () => {};
-const CHANGE_EVENT = "#change";
-const READY_EVENT = "#ready";
-const FAIL_EVENT = "#fail";
+export const CHANGE_EVENT = "#change";
+export const READY_EVENT = "#ready";
+export const FAIL_EVENT = "#fail";
 
 function processNext(iterator, payload) {
   if (!iterator) return { done: true };
@@ -317,14 +317,38 @@ function createEmitter() {
 export function createStore({
   state: initialState = EMPTY_OBJECT,
   init,
+  context = {},
   commands: customCommands,
 } = EMPTY_OBJECT) {
+  let initTask;
+  let ready = false;
   const flows = new Map();
   const tokens = {};
   const emitter = createEmitter();
   const executedFlows = new WeakSet();
   const commands = {
     ...customCommands,
+    context(payload, task) {
+      const isMultiple = Array.isArray(payload);
+      if (typeof payload === "string" || isMultiple) {
+        const values = (isMultiple ? payload : [payload]).map(
+          (prop) => context[prop]
+        );
+        return task.success(isMultiple ? values : values[0]);
+      }
+      if (!payload || typeof payload !== "object") {
+        throw new Error("Invalid context payload");
+      }
+      context = { ...context, ...payload };
+      task.success(context);
+    },
+    select(payload, task) {
+      const isMultiple = Array.isArray(payload);
+      const results = (isMultiple ? payload : [payload]).map((selector) =>
+        selector(currentState)
+      );
+      task.success(isMultiple ? results : results[0]);
+    },
     flow(payload, task) {
       const isMultiple = Array.isArray(payload);
       const flowArray = (isMultiple ? payload : [payload]).map((x) =>
@@ -555,19 +579,34 @@ export function createStore({
   }
 
   if (typeof init === "function") {
-    commands.once(
-      init,
-      createTask(
-        undefined,
-        () => emitter.emit(READY_EVENT),
-        () => emitter.emit(FAIL_EVENT)
-      )
+    initTask = createTask(
+      undefined,
+      () => {
+        ready = true;
+        emitter.emit(READY_EVENT);
+      },
+      () => emitter.emit(FAIL_EVENT)
     );
+    commands.once(init, initTask);
+  } else {
+    ready = true;
+    emitter.emit(READY_EVENT);
   }
 
   return {
     get state() {
       return getState();
+    },
+    get status() {
+      return initTask ? initTask.status : "success";
+    },
+    get error() {
+      return initTask && initTask.error;
+    },
+    ready(listener) {
+      if (!ready) return emitter.on(READY_EVENT, listener);
+      listener();
+      return NOOP;
     },
     on: emitter.on,
     emit: emitter.emit,
@@ -711,6 +750,7 @@ export function createTask(parent, onSuccess, onError) {
 export function createFlow(fn, getState, getFlow, commands) {
   let stale = true;
   let status = undefined;
+  let previousTask;
   let currentTask = createTask();
   let data;
   let error;
@@ -761,7 +801,9 @@ export function createFlow(fn, getState, getFlow, commands) {
     },
     cancel(payload, task) {
       if (payload) {
-        if (typeof payload === "function") {
+        if (payload === "previous") {
+          previousTask && previousTask.cancel();
+        } else if (typeof payload === "function") {
           getFlow(payload).cancel();
         } else {
           currentTask.cancel();
@@ -896,6 +938,7 @@ export function createFlow(fn, getState, getFlow, commands) {
     });
     dependencyProps.clear();
     dependencyFlows.clear();
+    previousTask = currentTask;
     currentTask = task;
     stale = false;
     error = undefined;

@@ -1,9 +1,9 @@
 const EMPTY_OBJECT = {};
 //  const EMPTY_ARRAY = [];
 const NOOP = () => {};
-const CHANGE_EVENT = "#change";
-const READY_EVENT = "#ready";
-const FAIL_EVENT = "#fail";
+export const CHANGE_EVENT = "#change";
+export const READY_EVENT = "#ready";
+export const FAIL_EVENT = "#fail";
 
 function processNext(iterator, payload) {
   if (!iterator) return { done: true };
@@ -320,6 +320,8 @@ export function createStore({
   context = {},
   commands: customCommands,
 } = EMPTY_OBJECT) {
+  let initTask;
+  let ready = false;
   const flows = new Map();
   const tokens = {};
   const emitter = createEmitter();
@@ -577,19 +579,34 @@ export function createStore({
   }
 
   if (typeof init === "function") {
-    commands.once(
-      init,
-      createTask(
-        undefined,
-        () => emitter.emit(READY_EVENT),
-        () => emitter.emit(FAIL_EVENT)
-      )
+    initTask = createTask(
+      undefined,
+      () => {
+        ready = true;
+        emitter.emit(READY_EVENT);
+      },
+      () => emitter.emit(FAIL_EVENT)
     );
+    commands.once(init, initTask);
+  } else {
+    ready = true;
+    emitter.emit(READY_EVENT);
   }
 
   return {
     get state() {
       return getState();
+    },
+    get status() {
+      return initTask ? initTask.status : "success";
+    },
+    get error() {
+      return initTask && initTask.error;
+    },
+    ready(listener) {
+      if (!ready) return emitter.on(READY_EVENT, listener);
+      listener();
+      return NOOP;
     },
     on: emitter.on,
     emit: emitter.emit,
