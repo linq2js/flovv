@@ -33,6 +33,8 @@ export function useFlow(flowFn, payload) {
   const ref = useRef({}).current;
 
   ref.rerender = useState()[1];
+  ref.rendering = true;
+
   if (ref.flow !== flow || ref.store !== store) {
     if (ref.wrapper) {
       ref.wrapper.dispose();
@@ -44,6 +46,7 @@ export function useFlow(flowFn, payload) {
         renderToken = {};
         return;
       }
+      if (ref.rendering) return;
       const token = (renderToken = {});
       Promise.resolve().then(() => {
         const nextRenderToken = renderToken;
@@ -51,12 +54,15 @@ export function useFlow(flowFn, payload) {
         if (token === nextRenderToken) return;
         rerender();
       });
+
       ref.rerender({});
     };
     ref.flow = flow;
     ref.store = store;
     ref.wrapper = createFlowWrapper(ref.flow, rerender);
   }
+
+  useEffect(() => (ref.rendering = false));
 
   useEffect(() => {
     return () => {
