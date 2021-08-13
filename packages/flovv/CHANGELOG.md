@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.6.1](https://github.com/linq2js/flovv/compare/flovv@0.6.0...flovv@0.6.1) (2021-08-13)
+
+
+### Bug Fixes
+
+* get command is not avail in init ([41cb571](https://github.com/linq2js/flovv/commit/41cb5717eaff85af3a74568bc3974d4e8de7e610))
+
+
+
+
+
 # [0.6.0](https://github.com/linq2js/flovv/compare/flovv@0.5.2...flovv@0.6.0) (2021-08-13)
 
 
