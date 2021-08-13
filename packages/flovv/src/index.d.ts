@@ -131,7 +131,8 @@ export type YieldExpression =
   | AllExpression
   | DoneExpression
   | FlowGenerator
-  | Promise<any>;
+  | Promise<any>
+  | { [key: string]: any };
 
 export interface Store<TState> {
   readonly state: TState;
