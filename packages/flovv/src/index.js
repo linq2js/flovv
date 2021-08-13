@@ -217,17 +217,12 @@ function processExpression(expression, task, commands, next) {
 
   const key = keys[0];
   const childTask = task.child(next);
-  const commandResult = commands[key](
-    expression[key],
-    childTask,
-    commands,
-    next
-  );
-  // command can produce yield expression
+  const commandResult = commands[key](expression[key], childTask, commands);
   if (typeof commandResult === "function") {
-    const exp = commandResult();
-    if (!exp) return next();
-    return processExpression(exp, task, commands, next);
+    return commandResult((exp) => {
+      if (!exp) return next();
+      return processExpression(exp, task, commands, next);
+    });
   }
   return commandResult;
 }

@@ -197,12 +197,12 @@ test("command produces expression", () => {
     yield { mycommand: 1 };
   }
   processFlow(mainFlow(), undefined, {
-    mycommand: () => () =>
-      [
+    mycommand: () => (exec) =>
+      exec([
         { call: [callback, 1] },
         { call: [callback, 2] },
         { call: [callback, 3] },
-      ],
+      ]),
   });
   expect(callback).toBeCalledTimes(3);
   expect(callback.mock.calls).toEqual([[1], [2], [3]]);

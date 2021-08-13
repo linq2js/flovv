@@ -175,7 +175,12 @@ export type Command<TPayload> = (
   payload?: TPayload,
   task?: Task,
   commands?: CommandCollection
-) => (() => YieldExpression | YieldExpression[]) | void | Promise<void>;
+) =>
+  | ((
+      exec: (expression: YieldExpression | YieldExpression[]) => void
+    ) => void | Promise<void>)
+  | void
+  | Promise<void>;
 
 export interface Task<TResult = any> {
   readonly error: Error;
