@@ -315,7 +315,7 @@ export function createStore({
   context = {},
   commands: customCommands,
 } = EMPTY_OBJECT) {
-  let initTask;
+  let initFlow;
   let ready = false;
   const flows = new Map();
   const tokens = {};
@@ -573,30 +573,15 @@ export function createStore({
     return getFlow(fn).restart(payload).data;
   }
 
-  if (typeof init === "function") {
-    initTask = createTask(
-      undefined,
-      () => {
-        ready = true;
-        emitter.emit(READY_EVENT);
-      },
-      () => emitter.emit(FAIL_EVENT)
-    );
-    commands.once(init, initTask);
-  } else {
-    ready = true;
-    emitter.emit(READY_EVENT);
-  }
-
   const store = {
     get state() {
       return getState();
     },
     get status() {
-      return initTask ? initTask.status : "success";
+      return initFlow ? initFlow.status : "success";
     },
     get error() {
-      return initTask && initTask.error;
+      return initFlow && initFlow.error;
     },
     ready(listener) {
       if (!ready) return emitter.on(READY_EVENT, listener);
@@ -612,6 +597,23 @@ export function createStore({
   };
 
   commands.$$store = store;
+
+  if (typeof init === "function") {
+    initFlow = getFlow(init);
+    executedFlows.add(init);
+    initFlow.watch(() => {
+      if (initFlow.status === "success") {
+        emitter.emit(READY_EVENT);
+      } else if (initFlow.status === "fail") {
+        emitter.emit(FAIL_EVENT);
+      }
+    });
+    initFlow.start();
+  } else {
+    ready = true;
+    emitter.emit(READY_EVENT);
+  }
+
   return store;
 }
 

@@ -221,6 +221,7 @@ test("store ready", async () => {
   const callback = jest.fn();
   function* mainFlow() {
     yield { delay: 10 };
+    yield { get: "something" };
   }
   const store = flovv({ init: mainFlow });
   store.ready(callback);
