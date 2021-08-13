@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.7.3](https://github.com/linq2js/flovv/compare/flovv@0.7.2...flovv@0.7.3) (2021-08-13)
+
+
+### Bug Fixes
+
+* store change notify issue ([c28a8ea](https://github.com/linq2js/flovv/commit/c28a8ea632cf9f7c04defd6d5ec521a656f2a888))
+
+
+
+
+
 ## [0.7.2](https://github.com/linq2js/flovv/compare/flovv@0.7.1...flovv@0.7.2) (2021-08-13)
 
 
