@@ -171,16 +171,13 @@ export interface CommandCollection {
   [key: string]: Command;
 }
 
+export type Yield = (exp: YieldExpression | YieldExpression[]) => void;
+
 export type Command<TPayload> = (
   payload?: TPayload,
   task?: Task,
   commands?: CommandCollection
-) =>
-  | ((
-      exec: (expression: YieldExpression | YieldExpression[]) => void
-    ) => void | Promise<void>)
-  | void
-  | Promise<void>;
+) => ((yield: Yield) => void | Promise<void>) | void | Promise<void>;
 
 export interface Task<TResult = any> {
   readonly error: Error;
