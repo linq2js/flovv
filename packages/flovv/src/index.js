@@ -222,7 +222,7 @@ function processExpression(expression, task, commands, next) {
     return commandResult((exp) => {
       if (!exp) return next();
       return processExpression(exp, task, commands, next);
-    });
+    }, commands.$$store);
   }
   return commandResult;
 }
@@ -588,7 +588,7 @@ export function createStore({
     emitter.emit(READY_EVENT);
   }
 
-  return {
+  const store = {
     get state() {
       return getState();
     },
@@ -610,6 +610,9 @@ export function createStore({
     start,
     restart,
   };
+
+  commands.$$store = store;
+  return store;
 }
 
 export function createTask(parent, onSuccess, onError) {

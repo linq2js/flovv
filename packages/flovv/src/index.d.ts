@@ -134,7 +134,7 @@ export type YieldExpression =
   | Promise<any>
   | { [key: string]: any };
 
-export interface Store<TState> {
+export interface Store<TState = { [key: string]: any }> {
   readonly state: TState;
   readonly status: Status;
   readonly error: Error;
@@ -178,7 +178,10 @@ export type Command<TPayload> = (
   payload?: TPayload,
   task?: Task,
   commands?: CommandCollection
-) => ((yield: Yield) => void | Promise<void>) | void | Promise<void>;
+) =>
+  | ((run: Yield, store?: Store) => void | Promise<void>)
+  | void
+  | Promise<void>;
 
 export interface Task<TResult = any> {
   readonly error: Error;
