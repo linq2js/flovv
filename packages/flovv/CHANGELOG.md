@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.7.1](https://github.com/linq2js/flovv/compare/flovv@0.7.0...flovv@0.7.1) (2021-08-13)
+
+
+### Bug Fixes
+
+* emit command issue ([93bc444](https://github.com/linq2js/flovv/commit/93bc444cd22254b23c68e74b3490f9b5b8a92500))
+
+
+
+
+
 # [0.7.0](https://github.com/linq2js/flovv/compare/flovv@0.6.2...flovv@0.7.0) (2021-08-13)
 
 
