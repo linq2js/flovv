@@ -7,6 +7,7 @@ import {
   useEffect,
 } from "react";
 
+const NOOP = () => {};
 const storeContext = createContext();
 
 export function useStore() {
@@ -30,20 +31,25 @@ export function useFlow(flowFn, payload) {
   const { store, suspense, errorBoundary } = useContext(storeContext);
   const flow = store.flow(flowFn);
   const ref = useRef({}).current;
-  const rerender = useState()[1];
+  ref.rerender = NOOP;
+  ref.__rerender = useState()[1];
   if (ref.flow !== flow || ref.store !== store) {
     // if (ref.wrapper) {
     //   ref.wrapper.dispose();
     // }
+
     ref.flow = flow;
     ref.store = store;
-    ref.wrapper = createFlowWrapper(ref.flow, rerender);
+    ref.wrapper = createFlowWrapper(ref.flow, () => {
+      ref.rerender({});
+    });
   }
 
   useEffect(() => {
-    ref.wrapper.mount = true;
+    ref.rerender = ref.__rerender;
+
     return () => {
-      ref.wrapper.unmount = true;
+      ref.rerender = NOOP;
       ref.wrapper.dispose();
     };
   }, [ref.wrapper]);
@@ -106,13 +112,7 @@ function createFlowWrapper(flow, rerender) {
     disposed: createStatusGetter(flow, "disposed"),
   });
 
-  unwatch = flow.watch(() => {
-    if (wrapper.unmount) {
-      unwatch();
-      return;
-    }
-    rerender({});
-  });
+  unwatch = flow.watch(rerender);
 
   return wrapper;
 }
