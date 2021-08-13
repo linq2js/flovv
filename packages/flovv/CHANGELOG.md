@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.5.0](https://github.com/linq2js/flovv/compare/flovv@0.4.0...flovv@0.5.0) (2021-08-13)
+
+
+### Features
+
+* change signature of command ([5900af8](https://github.com/linq2js/flovv/commit/5900af89f35b65d7469b93e5fd3999e0f25bdf0d))
+
+
+
+
+
 # [0.4.0](https://github.com/linq2js/flovv/compare/flovv@0.3.0...flovv@0.4.0) (2021-08-12)
 
 
