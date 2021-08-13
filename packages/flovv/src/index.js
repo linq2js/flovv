@@ -430,7 +430,7 @@ export function createStore({
         }
       }
     },
-    emit(payload) {
+    emit(payload, task) {
       if (payload && typeof payload === "object") {
         Object.keys(payload).forEach((key) => {
           emitter.emit(key, payload[key]);
@@ -440,6 +440,7 @@ export function createStore({
         emitter.emit(payload);
         emitter.emit("*", { type: payload });
       }
+      task.success();
     },
     on(payload, task, commands) {
       const entries = Object.entries(payload);
