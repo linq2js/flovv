@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.7.0](https://github.com/linq2js/flovv/compare/flovv@0.6.2...flovv@0.7.0) (2021-08-13)
+
+
+### Features
+
+* can use wildcard for event listener ([dfe1fdf](https://github.com/linq2js/flovv/commit/dfe1fdf9d6e83d877a1d0b5563365667c0901585))
+
+
+
+
+
 ## [0.6.2](https://github.com/linq2js/flovv/compare/flovv@0.6.1...flovv@0.6.2) (2021-08-13)
 
 **Note:** Version bump only for package flovv
