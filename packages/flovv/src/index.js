@@ -434,9 +434,11 @@ export function createStore({
       if (payload && typeof payload === "object") {
         Object.keys(payload).forEach((key) => {
           emitter.emit(key, payload[key]);
+          emitter.emit("*", { type: key, payload: payload[key] });
         });
       } else if (typeof payload === "string") {
         emitter.emit(payload);
+        emitter.emit("*", { type: payload });
       }
     },
     on(payload, task, commands) {
@@ -536,7 +538,7 @@ export function createStore({
     return emitter.on(CHANGE_EVENT, watcher);
   }
 
-  function getFlow(fn) {
+  function getFlow(fn, extendedCommands) {
     if (typeof fn === "string") {
       const cacheKey = fn.replace(/\s+/g, "");
       let cachedFn = fnCache.get(cacheKey);
@@ -559,7 +561,12 @@ export function createStore({
 
     let f = flows.get(fn);
     if (!f) {
-      f = createFlow(fn, getState, getFlow, commands);
+      f = createFlow(
+        fn,
+        getState,
+        getFlow,
+        extendedCommands ? { ...commands, ...extendedCommands } : commands
+      );
       flows.set(fn, f);
     }
     return f;
