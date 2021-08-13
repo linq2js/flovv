@@ -31,24 +31,35 @@ export function useFlow(flowFn, payload) {
   const { store, suspense, errorBoundary } = useContext(storeContext);
   const flow = store.flow(flowFn);
   const ref = useRef({}).current;
-  ref.rerender = NOOP;
-  ref.__rerender = useState()[1];
+
+  ref.rerender = useState()[1];
   if (ref.flow !== flow || ref.store !== store) {
     // if (ref.wrapper) {
     //   ref.wrapper.dispose();
     // }
-
+    let renderToken;
     ref.flow = flow;
     ref.store = store;
     ref.wrapper = createFlowWrapper(ref.flow, () => {
+      if (ref.unmount) return;
+      if (renderToken) {
+        renderToken = {};
+        return;
+      }
+      const token = (renderToken = {});
+      Promise.resolve().then(() => {
+        const nextRenderToken = renderToken;
+        renderToken = null;
+        if (token === nextRenderToken) return;
+        ref.rerender({});
+      });
       ref.rerender({});
     });
   }
 
   useEffect(() => {
-    ref.rerender = ref.__rerender;
-
     return () => {
+      ref.unmount = true;
       ref.rerender = NOOP;
       ref.wrapper.dispose();
     };

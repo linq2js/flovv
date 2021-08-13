@@ -528,23 +528,7 @@ export function createStore({
     task.success(flow.data);
   }
 
-  let changeToken;
-
   function handleChange() {
-    if (changeToken) {
-      changeToken = {};
-      return;
-    }
-    const token = (changeToken = {});
-    Promise.resolve(() => {
-      const nextToken = changeToken;
-      changeToken = null;
-      // there are some change since last time
-      if (token !== nextToken) {
-        handleChange();
-      }
-    });
-
     flows.forEach((flow) => {
       flow.$$stateChange(currentState);
     });
