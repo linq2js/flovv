@@ -2,6 +2,7 @@ const EMPTY_OBJECT = {};
 //  const EMPTY_ARRAY = [];
 const NOOP = () => {};
 export const CHANGE_EVENT = "#change";
+export const LAZY_CHANGE_EVENT = "#lazy_change";
 export const READY_EVENT = "#ready";
 export const FAIL_EVENT = "#fail";
 
@@ -793,6 +794,10 @@ export function createFlow(fn, getState, getFlow, commands) {
       error = null;
       notifyChange();
     },
+    // lazy watching
+    $$watch(listener) {
+      return emitter.on(LAZY_CHANGE_EVENT, listener);
+    },
     start,
     restart,
     watch,
@@ -889,9 +894,15 @@ export function createFlow(fn, getState, getFlow, commands) {
     notifyChange();
   }
 
+  let changeToken;
   function notifyChange() {
     promise = null;
     emitter.emit(CHANGE_EVENT, flow);
+    const token = (changeToken = {});
+    Promise.resolve().then(() => {
+      if (token !== changeToken) return;
+      emitter.emit(LAZY_CHANGE_EVENT, flow);
+    });
   }
 
   function handleChange(s, d, e, task) {

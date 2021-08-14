@@ -7,7 +7,6 @@ import {
   useEffect,
 } from "react";
 
-const NOOP = () => {};
 const storeContext = createContext();
 
 export function useStore() {
@@ -36,25 +35,8 @@ export function useFlow(flowFn, payload) {
   ref.rendering = true;
 
   if (ref.flow !== flow || ref.store !== store) {
-    if (ref.wrapper) {
-      ref.wrapper.dispose();
-    }
-    let renderToken;
     const rerender = () => {
-      if (ref.unmount) return;
-      if (renderToken) {
-        renderToken = {};
-        return;
-      }
-      if (ref.rendering) return;
-      const token = (renderToken = {});
-      Promise.resolve().then(() => {
-        const nextRenderToken = renderToken;
-        renderToken = null;
-        if (token === nextRenderToken) return;
-        rerender();
-      });
-
+      if (ref.unmount || ref.rendering) return;
       ref.rerender({});
     };
     ref.flow = flow;
@@ -62,13 +44,15 @@ export function useFlow(flowFn, payload) {
     ref.wrapper = createFlowWrapper(ref.flow, rerender);
   }
 
-  useEffect(() => (ref.rendering = false));
+  useEffect(() => {
+    ref.rendering = false;
+  });
 
   useEffect(() => {
+    let wrapper = ref.wrapper;
     return () => {
       ref.unmount = true;
-      ref.rerender = NOOP;
-      ref.wrapper.dispose();
+      wrapper.dispose();
     };
   }, [ref.wrapper]);
 
@@ -130,7 +114,7 @@ function createFlowWrapper(flow, rerender) {
     disposed: createStatusGetter(flow, "disposed"),
   });
 
-  unwatch = flow.watch(rerender);
+  unwatch = flow.$$watch(rerender);
 
   return wrapper;
 }
