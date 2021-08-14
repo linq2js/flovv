@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/ban-types */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Store, Flow, Status } from "./index";
 import { FC } from "react";
-import { Store, Flow, FlowGenerator, Status, YieldExpression } from "./index";
 
 export interface FlowRef<TPayload = any, TData = any> {
   readonly loading: boolean;

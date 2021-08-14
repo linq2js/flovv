@@ -33,8 +33,11 @@ export function useFlow(flowFn, payload) {
 
   ref.rerender = useState()[1];
   ref.rendering = true;
-
   if (ref.flow !== flow || ref.store !== store) {
+    if (ref.wrapper) {
+      ref.wrapper.dispose();
+    }
+
     const rerender = () => {
       if (ref.unmount || ref.rendering) return;
       ref.rerender({});
@@ -49,12 +52,10 @@ export function useFlow(flowFn, payload) {
   });
 
   useEffect(() => {
-    let wrapper = ref.wrapper;
     return () => {
       ref.unmount = true;
-      wrapper.dispose();
     };
-  }, [ref.wrapper]);
+  }, [ref]);
 
   Object.assign(ref.wrapper, {
     payload,

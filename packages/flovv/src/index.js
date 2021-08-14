@@ -1,6 +1,8 @@
 const EMPTY_OBJECT = {};
 //  const EMPTY_ARRAY = [];
-const NOOP = () => {};
+const NOOP = () => {
+  //
+};
 export const CHANGE_EVENT = "#change";
 export const LAZY_CHANGE_EVENT = "#lazy_change";
 export const READY_EVENT = "#ready";
@@ -72,48 +74,15 @@ function processFork(fork, commands, task, next) {
   return next(isMultipleFork ? childTasks : childTasks[0]);
 }
 
-function processExpression(expression, task, commands, next) {
-  if (Array.isArray(expression)) {
-    const expList = expression;
-    const results = [];
-    const nextExpression = (result) => {
-      if (task.cancelled || task.disposed || task.error) return;
-      if (result !== NOOP) {
-        results.push(result);
-      }
-      if (!expList.length) return next(results);
-      return processExpression(expList.shift(), task, commands, nextExpression);
-    };
-
-    return nextExpression(NOOP);
+function processSingleExpression(type, data, task, commands, next) {
+  if (type === "fork") {
+    return processFork(data, commands, task, next);
   }
-
-  // is iterator
-  if (typeof expression.next === "function") {
-    return processFlow(expression, undefined, commands, task.child(next));
+  if (type === "all" || type === "done" || type === "any") {
+    return processAsync(type, data, task, commands, next);
   }
-
-  // is promise
-  if (typeof expression.then === "function") {
-    return task.wrap(expression, next);
-  }
-
-  if (expression.fork) {
-    return processFork(expression.fork, commands, task, next);
-  }
-
-  if (expression.all || expression.done || expression.any) {
-    return processAsync(
-      expression.all ? "all" : expression.done ? "done" : "any",
-      expression.all || expression.done || expression.any,
-      task,
-      commands,
-      next
-    );
-  }
-
-  if ("debounce" in expression) {
-    const { ms, when, flow, payload } = expression.debounce;
+  if (type === "debounce") {
+    const { ms, when, flow, payload } = data;
     let forkedTask;
     const inner = function* () {
       yield { delay: ms };
@@ -134,9 +103,8 @@ function processExpression(expression, task, commands, next) {
     };
     return processFork(outer(), commands, task, next);
   }
-
-  if ("throttle" in expression) {
-    const { ms, when, flow, payload } = expression.throttle;
+  if (type === "throttle") {
+    const { ms, when, flow, payload } = data;
     let executing = false;
     const inner = function* () {
       const start = new Date().getTime();
@@ -166,20 +134,15 @@ function processExpression(expression, task, commands, next) {
     return processFork(outer(), commands, task, next);
   }
 
-  if ("use" in expression) {
+  if (type === "use") {
     // custom commands
     return next(undefined, {
-      commands: Object.assign(
-        {},
-        ...(Array.isArray(expression.use) ? expression.use : [expression.use])
-      ),
+      commands: Object.assign({}, ...(Array.isArray(data) ? data : [data])),
     });
   }
 
-  if ("call" in expression) {
-    const [fn, ...args] = Array.isArray(expression.call)
-      ? expression.call
-      : [expression.call];
+  if (type === "call") {
+    const [fn, ...args] = Array.isArray(data) ? data : [data];
     if (typeof fn !== "function") {
       throw new Error(
         `Invalid call expression. Expect a function but got ${typeof fn}`
@@ -193,32 +156,26 @@ function processExpression(expression, task, commands, next) {
     return next(result);
   }
 
-  if ("delay" in expression) {
+  if (type === "delay") {
     const timer = setTimeout(() => {
       removeDisposeListener();
       next();
-    }, expression.delay || 0);
+    }, data || 0);
     const removeDisposeListener = task.onDispose(() => clearTimeout(timer));
     return;
   }
 
-  if ("task" in expression) {
-    return task[expression.task]();
+  if (type === "task") {
+    return task[data]();
   }
 
-  const keys = Object.keys(expression);
-
-  if (keys.length !== 1 || !(keys[0] in commands)) {
+  if (!(type in commands)) {
     throw new Error(
-      `Expect { ${Object.keys(commands).join(
-        "|"
-      )}: payload } but got {${keys.join(",")}}`
+      `Expect { ${Object.keys(commands).join("|")}: payload } but got {${type}}`
     );
   }
-
-  const key = keys[0];
   const childTask = task.child(next);
-  const commandResult = commands[key](expression[key], childTask, commands);
+  const commandResult = commands[type](data, childTask, commands);
   if (typeof commandResult === "function") {
     return commandResult((exp) => {
       if (!exp) return next();
@@ -226,6 +183,66 @@ function processExpression(expression, task, commands, next) {
     }, commands.$$store);
   }
   return commandResult;
+}
+
+function processGroupedExpression(expression, task, commands, next) {
+  // is iterator
+  if (typeof expression.next === "function") {
+    return processFlow(expression, undefined, commands, task.child(next));
+  }
+
+  // is promise
+  if (typeof expression.then === "function") {
+    return task.wrap(expression, next);
+  }
+
+  const entries = Object.entries(expression);
+  if (!entries.length) {
+    return next();
+  }
+  let lastResult;
+  function nextItem(result, customCommands) {
+    lastResult = result;
+    if (!entries.length) return next(lastResult, customCommands);
+    const [type, data] = entries.shift();
+    return processSingleExpression(
+      type,
+      data,
+      task,
+      customCommands || commands,
+      nextItem
+    );
+  }
+
+  nextItem();
+}
+
+function processMultipleExpressions(expressionList, task, commands, next) {
+  const results = [];
+  const nextExpression = (result) => {
+    if (task.cancelled || task.disposed || task.error) return;
+    if (result !== NOOP) {
+      results.push(result);
+    }
+    if (!expressionList.length) return next(results);
+
+    return processGroupedExpression(
+      expressionList.shift(),
+      task,
+      commands,
+      nextExpression
+    );
+  };
+
+  return nextExpression(NOOP);
+}
+
+function processExpression(expression, task, commands, next) {
+  if (Array.isArray(expression)) {
+    return processMultipleExpressions(expression, task, commands, next);
+  }
+
+  processGroupedExpression(expression, task, commands, next);
 }
 
 function processAsync(mode, target, task, commands, next) {
@@ -895,14 +912,18 @@ export function createFlow(fn, getState, getFlow, commands) {
   }
 
   let changeToken;
-  function notifyChange() {
+  function notifyChange(notifyLazyListeners) {
     promise = null;
     emitter.emit(CHANGE_EVENT, flow);
-    const token = (changeToken = {});
-    Promise.resolve().then(() => {
-      if (token !== changeToken) return;
+    if (notifyLazyListeners) {
       emitter.emit(LAZY_CHANGE_EVENT, flow);
-    });
+    } else {
+      const token = (changeToken = {});
+      setTimeout(() => {
+        if (token !== changeToken) return;
+        emitter.emit(LAZY_CHANGE_EVENT, flow);
+      });
+    }
   }
 
   function handleChange(s, d, e, task) {
@@ -955,7 +976,6 @@ export function createFlow(fn, getState, getFlow, commands) {
       status = "cancelled";
       notifyChange();
     });
-    dependencyProps.clear();
     dependencyFlows.clear();
     previousTask = currentTask;
     currentTask = task;
@@ -998,8 +1018,9 @@ export function createFlow(fn, getState, getFlow, commands) {
       changed = true;
     });
     if (changed) {
+      dependencyProps.clear();
       stale = true;
-      notifyChange();
+      notifyChange(true);
     }
   }
 
