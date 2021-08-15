@@ -27,10 +27,10 @@ export const Provider: FC<{
 
 export interface UseFlow {
   <TResult = any>(flow: string): TResult;
-  <TPayload, TResult>(flow: Flow<TPayload, TResult>): FlowRef<
-    TPayload,
-    TResult
-  >;
+  <TPayload, TResult>(
+    flow: Flow<TPayload, TResult>,
+    payload?: TPayload
+  ): FlowRef<TPayload, TResult>;
 }
 
 export const useFlow: UseFlow;

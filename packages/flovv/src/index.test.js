@@ -37,7 +37,7 @@ test("ref: flow", async () => {
   store.start(updateFlow);
 
   await doubleValueFlow.start();
-
+  // console.log(store.state, store.flow(getValue).data);
   expect(doubleValueFlow.data).toBe(4);
 });
 

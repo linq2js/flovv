@@ -58,6 +58,7 @@ export function useFlow(flowFn, payload) {
   }, [ref]);
 
   Object.assign(ref.wrapper, {
+    hasPayload: arguments.length > 1,
     payload,
     suspense,
     errorBoundary,
@@ -98,11 +99,15 @@ function createFlowWrapper(flow, rerender) {
       unwatch();
     },
     start(payload) {
-      flow.start(arguments.length ? payload : wrapper.payload);
+      flow.start(
+        arguments.length && !wrapper.hasPayload ? payload : wrapper.payload
+      );
       return wrapper;
     },
     restart(payload) {
-      flow.restart(arguments.length ? payload : wrapper.payload);
+      flow.restart(
+        arguments.length && !wrapper.hasPayload ? payload : wrapper.payload
+      );
       return wrapper;
     },
   };

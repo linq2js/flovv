@@ -1,22 +1,26 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export type Flow<TPayload = any, TResult = void> =
-  | ((payload: TPayload) => FlowGenerator<TResult>)
-  | (() => FlowGenerator<TResult>);
+export type Flow<
+  TPayload = any,
+  TResult = void,
+  TCommands = { [key: string]: any }
+> =
+  | ((payload: TPayload) => FlowGenerator<TResult, TCommands>)
+  | (() => FlowGenerator<TResult, TCommands>);
 
-export type FlowGenerator<TResult = any> = Generator<
-  YieldExpression | YieldExpression[],
+export type FlowGenerator<TResult = any, TCommands = {}> = Generator<
+  YieldExpression<TCommands> | YieldExpression<TCommands>[],
   TResult,
   any
 >;
 
 export type Callback<T = any> = (arg?: T) => void;
 
-export type YieldExpression =
-  | FlowGenerator
+export type YieldExpression<TCommands = { [key: string]: any }> =
+  | FlowGenerator<TCommands>
   | Promise<any>
-  | {
+  | ({
       on?: { [event: string]: Flow | [Flow, any] | YieldExpression };
       emit?: string | string[] | { [event: string]: any };
       when?:
@@ -29,20 +33,24 @@ export type YieldExpression =
       done?: { [key: string]: YieldExpression } | YieldExpression[];
       any?: { [key: string]: YieldExpression } | YieldExpression[];
 
-      ref?: string | Flow | (string | Flow)[];
-      get?: string | Flow | (string | Flow)[];
+      ref?: any;
+      get?: any;
       set?:
-        | { [state: string]: ((prev: any) => any) | any }
-        | [Flow | string, any];
+        | // { state1: value1, state2: value2 }
+        { [state: string]: ((prev: any) => any) | any }
+        // [flow, value]
+        | [Flow | string, any]
+        // reducer
+        | ((state: any) => any);
       select?: ((state: any) => any) | ((state: any) => any)[];
       context?: string | string[] | { [key: string]: any };
 
-      start?: Flow | [Flow, any];
-      restart?: Flow | [Flow, any];
+      start?: Flow | [Flow<TPayload>, TPayload];
+      restart?: Flow | [Flow<TPayload>, TPayload];
 
       fork?: FlowGenerator | FlowGenerator[] | YieldExpression;
       call?: Function | [Function, ...any[]];
-      cancel?: "previous" | boolean | Flow | null | undefined;
+      cancel?: boolean | Flow | null | undefined | string;
 
       once?: Flow | Flow[];
       use?: CommandCollection | CommandCollection[];
@@ -60,9 +68,7 @@ export type YieldExpression =
         payload?: TPayload;
       };
       delay?: number;
-
-      [key: string]: any;
-    };
+    } & TCommands);
 
 export interface Store<TState = { [key: string]: any }> {
   readonly state: TState;
@@ -83,7 +89,19 @@ export interface Store<TState = { [key: string]: any }> {
     payload?: TPayload
   ): TResult;
   ready(listener: Function): Function;
+  run<TPayload, TResult>(
+    flow: Flow<TPayload, TResult>,
+    options?: RunOptions<TPayload, TResult>
+  ): Task<TResult>;
 }
+
+export interface RunOptions<TPayload, TResult> {
+  payload?: TPayload;
+  onSuccess?: (result?: TResult) => void;
+  onError?: (error?: Error) => void;
+  commands?: CommandCollection;
+}
+
 export type Status = undefined | "loading" | "success" | "fail";
 
 export interface FlowInstance<TPayload, TData> extends Promise<TData> {
@@ -116,17 +134,24 @@ export type Command<TPayload> = (
 export interface Task<TResult = any> {
   readonly error: Error;
   readonly status: Status;
-  success(result: TResult): void;
+  success(result?: TResult): void;
   fail(error: Error): void;
 }
 
-export interface Options<TState> {
+export interface StoreOptions<TState> {
   state?: TState;
   init?: Flow;
   context?: { [key: string]: any };
   commands?: CommandCollection;
 }
 
-export function createStore<TState>(options?: Options<TState>): Store<TState>;
+export function createStore<TState = any>(
+  options?: StoreOptions<TState>
+): Store<TState>;
+
+export const CHANGE_EVENT: "#change";
+export const LAZY_CHANGE_EVENT: "#lazy_change";
+export const READY_EVENT: "#ready";
+export const FAIL_EVENT: "#fail";
 
 export default createStore;

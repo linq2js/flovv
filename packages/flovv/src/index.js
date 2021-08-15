@@ -287,7 +287,7 @@ function processAsync(mode, target, task, commands, next) {
   });
 }
 
-function createEmitter() {
+function createEmitter({ wildcard } = EMPTY_OBJECT) {
   const events = new Map();
 
   function getHandlers(event) {
@@ -313,8 +313,14 @@ function createEmitter() {
   }
 
   function emit(event, payload) {
-    const handlers = getHandlers(event);
-    handlers.slice(0).forEach((handler) => handler(payload));
+    try {
+      const handlers = getHandlers(event);
+      handlers.slice(0).forEach((handler) => handler(payload));
+    } finally {
+      if (wildcard && event !== "*") {
+        emit("*", { type: event, payload });
+      }
+    }
   }
 
   function dispose() {
@@ -337,7 +343,7 @@ export function createStore({
   let ready = false;
   const flows = new Map();
   const tokens = {};
-  const emitter = createEmitter();
+  const emitter = createEmitter({ wildcard: true });
   const executedFlows = new WeakSet();
   const commands = {
     ...customCommands,
@@ -395,6 +401,20 @@ export function createStore({
       next();
     },
     set(payload, task) {
+      // reducer
+      if (typeof payload === "function") {
+        const nextState = payload(currentState);
+        if (!nextState) return task.fail(new Error("Invalid state"));
+        if (typeof nextState.then === "function") {
+          const changeToken = (tokens.$ = {});
+          nextState.then((result) => {
+            if (changeToken !== tokens.$) return;
+            currentState = result;
+            task.success(currentState);
+          });
+        }
+        return;
+      }
       if (Array.isArray(payload)) {
         if (typeof payload[0] === "function") {
           return updateFlowData(payload[0], payload[1], task);
@@ -442,9 +462,11 @@ export function createStore({
           handleChange();
         }
         if (!error && promises.length) {
-          Promise.all(promises).then(task.success).catch(task.fail);
+          Promise.all(promises)
+            .then(() => task.success(currentState))
+            .catch(task.fail);
         } else {
-          task.success();
+          task.success(currentState);
         }
       }
     },
@@ -452,11 +474,9 @@ export function createStore({
       if (payload && typeof payload === "object") {
         Object.keys(payload).forEach((key) => {
           emitter.emit(key, payload[key]);
-          emitter.emit("*", { type: key, payload: payload[key] });
         });
       } else if (typeof payload === "string") {
         emitter.emit(payload);
-        emitter.emit("*", { type: payload });
       }
       task.success();
     },
@@ -468,11 +488,11 @@ export function createStore({
         childTask.onDispose(
           emitter.on(event, (e) => {
             if (typeof flow === "function") {
-              processFlow(flow(e), undefined, commands, task);
+              processFlow(flow(e), undefined, commands, childTask);
             } else if (Array.isArray(flow)) {
-              processFlow(flow[0](flow[1]), undefined, commands, task);
+              processFlow(flow[0](flow[1]), undefined, commands, childTask);
             } else {
-              processExpression(flow, task, commands, NOOP);
+              processExpression(flow, childTask, commands, NOOP);
             }
           })
         );
@@ -595,6 +615,20 @@ export function createStore({
     return getFlow(fn).start(payload).data;
   }
 
+  function run(
+    flow,
+    { payload, onSuccess, onError, commands: customCommands } = EMPTY_OBJECT
+  ) {
+    const task = createTask(undefined, onSuccess, onError);
+    processFlow(
+      flow(payload),
+      undefined,
+      customCommands ? { ...commands, ...customCommands } : commands,
+      task
+    );
+    return task;
+  }
+
   function restart(fn, payload) {
     return getFlow(fn).restart(payload).data;
   }
@@ -614,6 +648,7 @@ export function createStore({
       listener();
       return NOOP;
     },
+    run,
     on: emitter.on,
     emit: emitter.emit,
     watch,
@@ -907,6 +942,8 @@ export function createFlow(fn, getState, getFlow, commands) {
   }
 
   function handleFlowChange() {
+    dependencyFlows.clear();
+    // currentTask.cancel();
     stale = true;
     notifyChange();
   }
@@ -1018,6 +1055,7 @@ export function createFlow(fn, getState, getFlow, commands) {
       changed = true;
     });
     if (changed) {
+      // currentTask.cancel();
       dependencyProps.clear();
       stale = true;
       notifyChange(true);
