@@ -6,7 +6,6 @@ import {
   useState,
   useEffect,
 } from "react";
-import { objectEqual } from "./index";
 
 const storeContext = createContext();
 
