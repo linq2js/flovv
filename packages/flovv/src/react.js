@@ -42,12 +42,12 @@ export function useFlow(...args) {
     if (ref.wrapper) {
       ref.wrapper.dispose();
     }
-    let prev = { data: flow.data, error: flow.error, status: flow.status };
+    // let prev = { data: flow.data, error: flow.error, status: flow.status };
     const rerender = () => {
       if (ref.unmount || ref.rendering || ref.wrapper.disposed) return;
-      const next = { data: flow.data, error: flow.error, status: flow.status };
-      if (objectEqual(next, prev)) return;
-      prev = next;
+      // const next = { data: flow.data, error: flow.error, status: flow.status };
+      // if (objectEqual(next, prev)) return;
+      // prev = next;
       ref.rerender({});
     };
     ref.flow = flow;
