@@ -7,6 +7,7 @@ export const CHANGE_EVENT = "#change";
 export const LAZY_CHANGE_EVENT = "#lazy_change";
 export const READY_EVENT = "#ready";
 export const FAIL_EVENT = "#fail";
+const enqueue = Promise.resolve().then.bind(Promise.resolve());
 
 function processNext(iterator, payload) {
   if (!iterator) return { done: true };
@@ -592,6 +593,7 @@ export function createStore({
     },
   };
   let currentState = initialState;
+  let notifyingChange = false;
   const fnCache = new Map();
 
   function getState() {
@@ -608,10 +610,21 @@ export function createStore({
   }
 
   function handleChange() {
-    flows.forEach((flow) => {
-      flow.$$stateChange(currentState);
-    });
-    emitter.emit(CHANGE_EVENT, currentState);
+    try {
+      // is notifying, queue emitting to next frame
+      // it become async notifying
+      if (notifyingChange) {
+        enqueue(handleChange);
+        return;
+      }
+      notifyingChange = true;
+      flows.forEach((flow) => {
+        flow.$$stateChange(currentState);
+      });
+      emitter.emit(CHANGE_EVENT, currentState);
+    } finally {
+      notifyingChange = false;
+    }
   }
 
   function watch(watcher) {
