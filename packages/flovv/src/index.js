@@ -345,6 +345,7 @@ export function createStore({
   const tokens = {};
   const emitter = createEmitter({ wildcard: true });
   const executedFlows = new WeakSet();
+  const keys = new Map();
   const commands = {
     ...customCommands,
     context(payload, task) {
@@ -376,12 +377,12 @@ export function createStore({
       return task.success(isMultiple ? flowArray : flowArray[0]);
     },
     start(payload, task) {
-      const [fn, p] = Array.isArray(payload) ? payload : [payload];
-      return getFlow(fn).start(p, task);
+      const [fn, p, ...keys] = Array.isArray(payload) ? payload : [payload];
+      return getFlow(fn, keys.length ? keys : undefined).start(p, task);
     },
     restart(payload, task) {
-      const [fn, p] = Array.isArray(payload) ? payload : [payload];
-      return getFlow(fn).restart(p, task);
+      const [fn, p, ...keys] = Array.isArray(payload) ? payload : [payload];
+      return getFlow(fn, keys.length ? keys : undefined).restart(p, task);
     },
     once(payload, task) {
       const flows = Array.isArray(payload) ? payload : [payload];
@@ -400,6 +401,31 @@ export function createStore({
       }
       next();
     },
+    key(payload, task) {
+      task.success(getKey(Array.isArray(payload) ? payload : [payload]));
+    },
+    remove(payload, task) {
+      // remove keyed flow
+      // remove: [flow, ...keys]
+      if (Array.isArray(payload)) {
+        if (typeof payload[0] !== "function") {
+          return task.fail(
+            new Error(`Expect flow but got ${typeof payload[0]}`)
+          );
+        }
+        if (payload.length < 2) {
+          return task.fail(
+            new Error("Expect flow and its key but got flow only")
+          );
+        }
+        getFlow(payload[0], payload.slice(1)).remove();
+      }
+      // remove named flow or normal flow
+      else {
+        getFlow(payload).remove();
+      }
+      task.success();
+    },
     set(payload, task) {
       // reducer
       if (typeof payload === "function") {
@@ -415,6 +441,7 @@ export function createStore({
         }
         return;
       }
+      // [flow, value]
       if (Array.isArray(payload)) {
         if (typeof payload[0] === "function") {
           return updateFlowData(payload[0], payload[1], task);
@@ -440,8 +467,16 @@ export function createStore({
                 ) {
                   return;
                 }
-                currentState[prop] = result;
-                handleChange();
+                if (currentState[prop] !== result) {
+                  if (typeof result === "undefined") {
+                    delete currentState[prop];
+                    const namedFlow = flows.get(prop);
+                    if (namedFlow) namedFlow.remove();
+                  } else {
+                    currentState[prop] = result;
+                  }
+                  handleChange();
+                }
               })
             );
             return;
@@ -450,7 +485,13 @@ export function createStore({
             if (nextState === currentState) {
               nextState = { ...nextState };
             }
-            nextState[prop] = value;
+            if (typeof value === "undefined") {
+              delete nextState[prop];
+              const namedFlow = flows.get(prop);
+              if (namedFlow) namedFlow.remove();
+            } else {
+              nextState[prop] = value;
+            }
           }
         });
       } catch (e) {
@@ -577,7 +618,24 @@ export function createStore({
     return emitter.on(CHANGE_EVENT, watcher);
   }
 
-  function getFlow(fn, extendedCommands) {
+  function getKey(key) {
+    const map = key.reduce((parent, key) => {
+      let child = parent.get(key);
+      if (!child) {
+        child = new Map();
+        parent.set(key, child);
+      }
+      return child;
+    }, keys);
+    let k = map.key;
+    if (!k) {
+      map.key = k = `@${Math.random().toString(36).substr(2)}`;
+    }
+    return k;
+  }
+
+  function getFlow(fn, key) {
+    const originalKey = key;
     if (typeof fn === "string") {
       const cacheKey = fn.replace(/\s+/g, "");
       let cachedFn = fnCache.get(cacheKey);
@@ -598,15 +656,18 @@ export function createStore({
       fn = cachedFn;
     }
 
-    let f = flows.get(fn);
+    if (!key) {
+      key = fn;
+    } else {
+      key = getKey(key);
+    }
+
+    let f = flows.get(key);
     if (!f) {
-      f = createFlow(
-        fn,
-        getState,
-        getFlow,
-        extendedCommands ? { ...commands, ...extendedCommands } : commands
-      );
-      flows.set(fn, f);
+      f = createFlow(fn, getState, getFlow, commands, originalKey || [], () => {
+        flows.delete(key);
+      });
+      flows.set(key, f);
     }
     return f;
   }
@@ -617,7 +678,8 @@ export function createStore({
 
   function run(
     flow,
-    { payload, onSuccess, onError, commands: customCommands } = EMPTY_OBJECT
+    payload,
+    { onSuccess, onError, commands: customCommands } = EMPTY_OBJECT
   ) {
     const task = createTask(undefined, onSuccess, onError);
     processFlow(
@@ -653,6 +715,7 @@ export function createStore({
     emit: emitter.emit,
     watch,
     flow: getFlow,
+    key: getKey,
     start,
     restart,
   };
@@ -808,7 +871,7 @@ export function createTask(parent, onSuccess, onError) {
   return task;
 }
 
-export function createFlow(fn, getState, getFlow, commands) {
+export function createFlow(fn, getState, getFlow, commands, keys, remove) {
   let stale = true;
   let status = undefined;
   let previousTask;
@@ -816,10 +879,15 @@ export function createFlow(fn, getState, getFlow, commands) {
   let data;
   let error;
   let promise;
+  let selector;
   const dependencyFlows = new Set();
   const dependencyProps = new Map();
   const emitter = createEmitter();
   const flow = {
+    remove() {
+      dispose();
+      remove();
+    },
     get status() {
       return status;
     },
@@ -870,7 +938,14 @@ export function createFlow(fn, getState, getFlow, commands) {
           previousTask && previousTask.cancel();
         } else if (typeof payload === "function") {
           getFlow(payload).cancel();
-        } else {
+        }
+        // cancel family flow
+        else if (Array.isArray(payload)) {
+          const [f, ...keys] = payload;
+          getFlow(f, keys).cancel();
+        }
+        // cancel current flow
+        else {
           currentTask.cancel();
         }
       }
@@ -996,7 +1071,7 @@ export function createFlow(fn, getState, getFlow, commands) {
 
   function start(payload, inputTask) {
     if (!stale) return flow;
-    const iterator = fn(payload);
+    const iterator = fn(payload, ...keys);
     const task = createTask(
       undefined,
       (result) => {
@@ -1020,7 +1095,18 @@ export function createFlow(fn, getState, getFlow, commands) {
     error = undefined;
     status = "loading";
 
-    processFlow(iterator, undefined, commands, task);
+    if (typeof iterator === "function") {
+      selector = iterator;
+      try {
+        data = selector(getState());
+        status = "success";
+      } catch (e) {
+        status = "fail";
+        error = e;
+      }
+    } else {
+      processFlow(iterator, undefined, commands, task);
+    }
 
     notifyChange();
 
@@ -1040,6 +1126,7 @@ export function createFlow(fn, getState, getFlow, commands) {
   function dispose() {
     if (status === "disposed") return;
     status = "disposed";
+    currentTask.cancel();
     currentTask.dispose();
     emitter.dispose();
   }
@@ -1049,11 +1136,29 @@ export function createFlow(fn, getState, getFlow, commands) {
   }
 
   function handleStateChange(state) {
+    if (selector) {
+      try {
+        error = null;
+        const nextState = selector(state);
+        if (!objectEqual(nextState, data)) {
+          data = nextState;
+          status = "success";
+          notifyChange(true);
+        }
+      } catch (e) {
+        error = e;
+        status = "fail";
+        notifyChange(true);
+      }
+      return;
+    }
+
     let changed = false;
     dependencyProps.forEach((value, key) => {
       if (state[key] === value) return;
       changed = true;
     });
+
     if (changed) {
       // currentTask.cancel();
       dependencyProps.clear();
@@ -1063,6 +1168,19 @@ export function createFlow(fn, getState, getFlow, commands) {
   }
 
   return flow;
+}
+
+export function objectEqual(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (typeof a !== "object" || typeof b !== "object") return false;
+  for (const k in a) {
+    if (a[k] !== b[k]) return false;
+  }
+  for (const k in b) {
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
 }
 
 export default createStore;

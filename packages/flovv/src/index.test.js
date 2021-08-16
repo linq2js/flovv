@@ -241,3 +241,49 @@ test("store not ready", async () => {
   expect(callback).toBeCalledTimes(0);
   expect(store.error.message).toBe("fail");
 });
+
+test("kyed flow", () => {
+  function* getValue(payload, key) {
+    return yield { get: key };
+  }
+  const store = flovv({ state: { v1: 1, v2: 2 } });
+  const f1 = store.flow(getValue, ["v1"]).start();
+  const f2 = store.flow(getValue, ["v2"]).start();
+
+  expect(f1).not.toBe(f2);
+  expect(f1.data).toBe(1);
+  expect(f2.data).toBe(2);
+});
+
+// test("array keyed", () => {
+//   const callback = jest.fn();
+//   function* getTodo(id) {
+//     const key = yield { key: [id] };
+//     return yield { ref: key };
+//   }
+
+//   function* addTodo(text) {
+//     const id = Math.random();
+//     const key = yield { key: [id] };
+//     const todo = { id, text };
+
+//     yield {
+//       set: {
+//         todos: (prev) => prev.concat(id),
+//         [key]: todo,
+//       },
+//     };
+//   }
+
+//   function* remove(id) {
+//     const key = yield { key: [id] };
+//     yield {
+//       set: {
+//         todos: (prev) => prev.filter((x) => x !== id),
+//         [key]: undefined,
+//       },
+//     };
+//   }
+
+//   const store = flovv({ state: { todos: [] } });
+// });

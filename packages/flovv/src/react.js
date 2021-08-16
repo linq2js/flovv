@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
 } from "react";
+import { objectEqual } from "./index";
 
 const storeContext = createContext();
 
@@ -26,9 +27,13 @@ export function Provider({ children, store, suspense, errorBoundary }) {
   });
 }
 
-export function useFlow(flowFn, payload) {
+export function useFlow(...args) {
+  const [key, flowFn, payload] =
+    typeof args[1] === "function"
+      ? [Array.isArray(args[0]) ? args[0] : [args[0]], ...args.slice(1)]
+      : [null, ...args];
   const { store, suspense, errorBoundary } = useContext(storeContext);
-  const flow = store.flow(flowFn);
+  const flow = store.flow(flowFn, key);
   const ref = useRef({}).current;
 
   ref.rerender = useState()[1];
@@ -37,9 +42,12 @@ export function useFlow(flowFn, payload) {
     if (ref.wrapper) {
       ref.wrapper.dispose();
     }
-
+    let prev = { data: flow.data, error: flow.error, status: flow.status };
     const rerender = () => {
-      if (ref.unmount || ref.rendering) return;
+      if (ref.unmount || ref.rendering || ref.wrapper.disposed) return;
+      const next = { data: flow.data, error: flow.error, status: flow.status };
+      if (objectEqual(next, prev)) return;
+      prev = next;
       ref.rerender({});
     };
     ref.flow = flow;
@@ -74,6 +82,7 @@ export function useFlow(flowFn, payload) {
 function createFlowWrapper(flow, rerender) {
   let unwatch;
   let disposed = false;
+
   const wrapper = {
     get status() {
       return flow.status;
@@ -89,9 +98,17 @@ function createFlowWrapper(flow, rerender) {
       }
       return flow.data;
     },
+    get disposed() {
+      return disposed;
+    },
     cancel() {
+      if (disposed) return;
       flow.cancel();
       return wrapper;
+    },
+    remove() {
+      wrapper.dispose();
+      flow.remove();
     },
     dispose() {
       if (disposed) return;

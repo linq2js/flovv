@@ -6,8 +6,10 @@ export type Flow<
   TResult = void,
   TCommands = { [key: string]: any }
 > =
-  | ((payload: TPayload) => FlowGenerator<TResult, TCommands>)
-  | (() => FlowGenerator<TResult, TCommands>);
+  | ((
+      payload: TPayload
+    ) => FlowGenerator<TResult, TCommands> | ((state: any) => any))
+  | (() => FlowGenerator<TResult, TCommands> | ((state: any) => any));
 
 export type FlowGenerator<TResult = any, TCommands = {}> = Generator<
   YieldExpression<TCommands> | YieldExpression<TCommands>[],
@@ -45,12 +47,28 @@ export type YieldExpression<TCommands = { [key: string]: any }> =
       select?: ((state: any) => any) | ((state: any) => any)[];
       context?: string | string[] | { [key: string]: any };
 
-      start?: Flow | [Flow<TPayload>, TPayload];
-      restart?: Flow | [Flow<TPayload>, TPayload];
+      start?: Flow | [Flow<TPayload>, TPayload, ...any[]];
+      restart?: Flow | [Flow<TPayload>, TPayload, ...any[]];
 
       fork?: FlowGenerator | FlowGenerator[] | YieldExpression;
       call?: Function | [Function, ...any[]];
-      cancel?: boolean | Flow | null | undefined | string;
+      cancel?: // cancel current task
+      | boolean
+        // cancel current flow if true unless do nothing
+        | Flow
+        // do nothing
+        | null
+        // do nothing
+        | undefined
+        // cancel: "previous" => cancel previous task of current flow
+        | string
+        // cancel specified flow
+        | [Flow, ...any[]];
+      remove?:
+        | string
+        | Flow
+        // remove: [flow, ...keys]
+        | [Flow, ...any[]];
 
       once?: Flow | Flow[];
       use?: CommandCollection | CommandCollection[];
@@ -91,6 +109,7 @@ export interface Store<TState = { [key: string]: any }> {
   ready(listener: Function): Function;
   run<TPayload, TResult>(
     flow: Flow<TPayload, TResult>,
+    payload?: TPayload,
     options?: RunOptions<TPayload, TResult>
   ): Task<TResult>;
 }
