@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.7.11](https://github.com/linq2js/flovv/compare/flovv@0.7.10...flovv@0.7.11) (2021-08-16)
+
+
+### Bug Fixes
+
+* useFlow not re-render ([2349df8](https://github.com/linq2js/flovv/commit/2349df84038a6ed552b4bffcac38b911719a65d7))
+* useFlow not re-render ([3ec1f7a](https://github.com/linq2js/flovv/commit/3ec1f7aeeb011d136504249ab1f63e0426962cfd))
+
+
+
+
+
 ## [0.7.10](https://github.com/linq2js/flovv/compare/flovv@0.7.9...flovv@0.7.10) (2021-08-16)
 
 **Note:** Version bump only for package flovv
