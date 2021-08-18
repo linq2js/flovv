@@ -50,6 +50,9 @@ export type YieldExpression<TCommands = { [key: string]: any }> =
       start?: Flow | [Flow<TPayload>, TPayload, ...any[]];
       restart?: Flow | [Flow<TPayload>, TPayload, ...any[]];
 
+      invalidate?: string | string[];
+
+      error?: [((error: Error) => any) | FlowGenerator | any, ...any[]];
       fork?: FlowGenerator | FlowGenerator[] | YieldExpression;
       call?: Function | [Function, ...any[]];
       cancel?: // cancel current task

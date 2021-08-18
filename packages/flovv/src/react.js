@@ -71,6 +71,8 @@ export function useFlow(...args) {
     errorBoundary,
   });
 
+  if (errorBoundary && flow.status === "fail") throw flow.error;
+
   if (typeof flowFn !== "function") {
     return ref.wrapper.start().data;
   }
@@ -92,8 +94,6 @@ function createFlowWrapper(flow, rerender) {
     get data() {
       if (flow.status === "loading") {
         if (wrapper.suspense) throw flow;
-      } else if (flow.status === "fail") {
-        if (wrapper.errorBoundary) throw flow.error;
       }
       return flow.data;
     },

@@ -255,35 +255,54 @@ test("kyed flow", () => {
   expect(f2.data).toBe(2);
 });
 
-// test("array keyed", () => {
-//   const callback = jest.fn();
-//   function* getTodo(id) {
-//     const key = yield { key: [id] };
-//     return yield { ref: key };
-//   }
+test("invalidate", () => {
+  function* getRemoteData() {
+    yield { invalidate: "changed" };
+    return Math.random();
+  }
+  const store = flovv();
+  const v1 = store.flow(getRemoteData).start().data;
+  const v2 = store.flow(getRemoteData).start().data;
 
-//   function* addTodo(text) {
-//     const id = Math.random();
-//     const key = yield { key: [id] };
-//     const todo = { id, text };
+  expect(v1).toBe(v2);
+  store.emit("changed");
 
-//     yield {
-//       set: {
-//         todos: (prev) => prev.concat(id),
-//         [key]: todo,
-//       },
-//     };
-//   }
+  const v3 = store.flow(getRemoteData).start().data;
 
-//   function* remove(id) {
-//     const key = yield { key: [id] };
-//     yield {
-//       set: {
-//         todos: (prev) => prev.filter((x) => x !== id),
-//         [key]: undefined,
-//       },
-//     };
-//   }
+  expect(v3).not.toBe(v1);
+});
 
-//   const store = flovv({ state: { todos: [] } });
-// });
+test("handle error", async () => {
+  const callback = jest.fn();
+  async function throwError() {
+    await delay(10);
+    throw new Error("invalid");
+  }
+  function* mainFlow() {
+    try {
+      yield { call: throwError };
+    } catch (e) {
+      callback(e);
+    }
+  }
+  const store = flovv();
+  store.start(mainFlow);
+  await delay(20);
+  expect(callback).toBeCalledTimes(1);
+});
+
+test("handle error for forked task", async () => {
+  const callback = jest.fn();
+  async function throwError() {
+    await delay(10);
+    throw new Error("invalid");
+  }
+  function* mainFlow() {
+    const forkedTask = yield { fork: { call: throwError } };
+    yield { error: [callback, forkedTask] };
+  }
+  const store = flovv();
+  store.start(mainFlow);
+  await delay(20);
+  expect(callback).toBeCalledTimes(1);
+});

@@ -17,7 +17,21 @@ function processNext(iterator, payload) {
   try {
     return iterator.next(payload);
   } catch (error) {
-    return { error };
+    try {
+      iterator.throw(error);
+      return processNext(iterator);
+    } catch (nextError) {
+      return { error };
+    }
+  }
+}
+
+function processThrow(iterator, error, task, next) {
+  try {
+    iterator.throw(error);
+    next();
+  } catch (nextError) {
+    task.fail(nextError);
   }
 }
 
@@ -39,6 +53,10 @@ export function processFlow(
   if (!value || typeof value !== "object") {
     throw new Error("Expression must be object type");
   }
+  const innerTask = createTask(undefined, task.success, (error) => {
+    processThrow(iterator, error, task, next);
+  });
+
   const next = (result, override = EMPTY_OBJECT) =>
     processFlow(
       override.iterator || iterator,
@@ -46,7 +64,7 @@ export function processFlow(
       override.commands || commands,
       override.task || task
     );
-  return processExpression(value, task, commands, next);
+  return processExpression(value, innerTask, commands, next);
 }
 
 function processFork(fork, commands, task, next) {
@@ -75,7 +93,20 @@ function processFork(fork, commands, task, next) {
   return next(isMultipleFork ? childTasks : childTasks[0]);
 }
 
+function processError([handler, ...tasks], task, commands) {
+  const handleError = (error) => {
+    const r = typeof handler === "function" ? handler(error) : handler;
+    processExpression(r, task.child(), commands, NOOP);
+  };
+  const removeOnErrors = tasks.map((x) => x.onError(handleError));
+  task.onDispose(() => removeOnErrors.forEach((x) => x()));
+}
+
 function processSingleExpression(type, data, task, commands, next) {
+  if (type === "error") {
+    // yield { catch: {  } }
+    return processError(data, task, commands);
+  }
   if (type === "fork") {
     return processFork(data, commands, task, next);
   }
@@ -187,6 +218,7 @@ function processSingleExpression(type, data, task, commands, next) {
 }
 
 function processGroupedExpression(expression, task, commands, next) {
+  if (!expression) return;
   // is iterator
   if (typeof expression.next === "function") {
     return processFlow(expression, undefined, commands, task.child(next));
@@ -677,7 +709,7 @@ export function createStore({
 
     let f = flows.get(key);
     if (!f) {
-      f = createFlow(fn, getState, getFlow, commands, originalKey || [], () => {
+      f = createFlow(store, fn, commands, originalKey || [], () => {
         flows.delete(key);
       });
       flows.set(key, f);
@@ -784,29 +816,29 @@ export function createTask(parent, onSuccess, onError) {
     dispose() {
       if (status || disposed) return;
       disposed = true;
-      emitter.emit("dispose");
+      try {
+        emitter.emit("dispose");
+      } finally {
+        emitter.dispose();
+      }
+    },
+    onError(listener) {
+      if (status === "fail") {
+        return listener();
+      }
+      if (status || disposed) return NOOP;
+      return emitter.on("fail", listener);
     },
     onDispose(listener) {
       if (disposed) {
-        try {
-          listener();
-        } catch (e) {
-          //
-        }
-        return NOOP;
+        return listener();
       }
       if (status || disposed) return NOOP;
-
       return emitter.on("dispose", listener);
     },
     onCancel(listener) {
       if (task.cancelled) {
-        try {
-          listener();
-        } catch (e) {
-          //
-        }
-        return NOOP;
+        return listener();
       }
       if (status || disposed) return NOOP;
       return emitter.on("cancel", listener);
@@ -815,12 +847,14 @@ export function createTask(parent, onSuccess, onError) {
       if (status || disposed || task.cancelled) return;
       status = "success";
       result = value;
+      emitter.emit("success", value);
       return onSuccess && onSuccess(value);
     },
     fail(value) {
       if (status || disposed || task.cancelled) return;
       status = "fail";
       error = value;
+      emitter.emit("fail", value);
       if (onError) return onError(value);
       if (parent) return parent.fail(value);
       throw value;
@@ -884,7 +918,7 @@ export function createTask(parent, onSuccess, onError) {
   return task;
 }
 
-export function createFlow(fn, getState, getFlow, commands, keys, remove) {
+export function createFlow(store, fn, commands, keys, remove) {
   let stale = true;
   let status = undefined;
   let previousTask;
@@ -893,8 +927,10 @@ export function createFlow(fn, getState, getFlow, commands, keys, remove) {
   let error;
   let promise;
   let selector;
+  let removeStoreEventListener;
   const dependencyFlows = new Set();
   const dependencyProps = new Map();
+  const invalidateEvents = new Set();
   const emitter = createEmitter();
   const flow = {
     remove() {
@@ -945,17 +981,26 @@ export function createFlow(fn, getState, getFlow, commands, keys, remove) {
     get(payload, task) {
       return resolveValues(false, payload, task);
     },
+    invalidate(payload, task) {
+      (Array.isArray(payload) ? payload : [payload]).forEach((x) =>
+        invalidateEvents.add(x)
+      );
+      if (!removeStoreEventListener) {
+        removeStoreEventListener = store.on("*", handleInvalidate);
+      }
+      task.success();
+    },
     cancel(payload, task) {
       if (payload) {
         if (payload === "previous") {
           previousTask && previousTask.cancel();
         } else if (typeof payload === "function") {
-          getFlow(payload).cancel();
+          store.flow(payload).cancel();
         }
         // cancel family flow
         else if (Array.isArray(payload)) {
           const [f, ...keys] = payload;
-          getFlow(f, keys).cancel();
+          store.flow(f, keys).cancel();
         }
         // cancel current flow
         else {
@@ -978,7 +1023,7 @@ export function createFlow(fn, getState, getFlow, commands, keys, remove) {
       if (typeof target === "string") {
         return props.push([index, target]);
       }
-      const flow = getFlow(target);
+      const flow = store.flow(target);
       flows.push([index, flow]);
       flow.start();
     });
@@ -1025,12 +1070,18 @@ export function createFlow(fn, getState, getFlow, commands, keys, remove) {
   }
 
   function resolveStateValues(props, values) {
-    const state = getState();
+    const state = store.state;
     props.map(([index, prop]) => (values[index] = state[prop]));
   }
 
+  function handleInvalidate({ type }) {
+    if (stale || !invalidateEvents.has(type)) return;
+    stale = true;
+    notifyChange();
+  }
+
   function handleFlowChange() {
-    dependencyFlows.clear();
+    if (stale) return;
     // currentTask.cancel();
     stale = true;
     notifyChange();
@@ -1102,6 +1153,8 @@ export function createFlow(fn, getState, getFlow, commands, keys, remove) {
       notifyChange();
     });
     dependencyFlows.clear();
+    dependencyProps.clear();
+    invalidateEvents.clear();
     previousTask = currentTask;
     currentTask = task;
     stale = false;
@@ -1111,7 +1164,7 @@ export function createFlow(fn, getState, getFlow, commands, keys, remove) {
     if (typeof iterator === "function") {
       selector = iterator;
       try {
-        data = selector(getState());
+        data = selector(store.state);
         status = "success";
       } catch (e) {
         status = "fail";
@@ -1139,6 +1192,7 @@ export function createFlow(fn, getState, getFlow, commands, keys, remove) {
   function dispose() {
     if (status === "disposed") return;
     status = "disposed";
+    removeStoreEventListener && removeStoreEventListener();
     currentTask.cancel();
     currentTask.dispose();
     emitter.dispose();
@@ -1149,6 +1203,8 @@ export function createFlow(fn, getState, getFlow, commands, keys, remove) {
   }
 
   function handleStateChange(state) {
+    if (stale) return;
+
     if (selector) {
       try {
         error = null;
@@ -1166,18 +1222,13 @@ export function createFlow(fn, getState, getFlow, commands, keys, remove) {
       return;
     }
 
-    let changed = false;
-    dependencyProps.forEach((value, key) => {
-      if (state[key] === value) return;
-      changed = true;
+    [...dependencyProps].some((value, key) => {
+      if (state[key] === value) return false;
+      stale = true;
+      return true;
     });
 
-    if (changed) {
-      // currentTask.cancel();
-      dependencyProps.clear();
-      stale = true;
-      notifyChange(true);
-    }
+    if (stale) notifyChange(true);
   }
 
   return flow;
