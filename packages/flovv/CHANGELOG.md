@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.9.0](https://github.com/linq2js/flovv/compare/flovv@0.8.1...flovv@0.9.0) (2021-08-20)
+
+
+### Features
+
+* exclude private event for wildcard listener ([3a637cb](https://github.com/linq2js/flovv/commit/3a637cb51ed2e40f5a3c7087d6077a5bf6de4890))
+
+
+
+
+
 ## [0.8.1](https://github.com/linq2js/flovv/compare/flovv@0.8.0...flovv@0.8.1) (2021-08-20)
 
 **Note:** Version bump only for package flovv
