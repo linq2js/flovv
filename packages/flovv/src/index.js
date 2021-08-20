@@ -207,7 +207,12 @@ function processSingleExpression(type, data, task, commands, next) {
     );
   }
   const childTask = task.child(next);
-  const commandResult = commands[type](data, childTask, commands);
+  const commandResult = commands[type](
+    data,
+    childTask,
+    commands,
+    commands.$$store
+  );
   if (typeof commandResult === "function") {
     return commandResult((exp) => {
       if (!exp) return next();
