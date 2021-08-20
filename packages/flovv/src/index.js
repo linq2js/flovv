@@ -325,7 +325,7 @@ function processAsync(mode, target, task, commands, next) {
   });
 }
 
-function createEmitter({ wildcard } = EMPTY_OBJECT) {
+function createEmitter({ wildcard, privateEventPrefix } = EMPTY_OBJECT) {
   const events = new Map();
 
   function getHandlers(event) {
@@ -355,7 +355,11 @@ function createEmitter({ wildcard } = EMPTY_OBJECT) {
       const handlers = getHandlers(event);
       handlers.slice(0).forEach((handler) => handler(payload));
     } finally {
-      if (wildcard && event !== "*") {
+      if (
+        wildcard &&
+        event !== "*" &&
+        (!privateEventPrefix || privateEventPrefix !== event[0])
+      ) {
         emit("*", { type: event, payload });
       }
     }
@@ -381,7 +385,7 @@ export function createStore({
   let ready = false;
   const flows = new Map();
   const tokens = {};
-  const emitter = createEmitter({ wildcard: true });
+  const emitter = createEmitter({ wildcard: true, privateEventPrefix: "#" });
   const executedFlows = new WeakSet();
   const keys = new Map();
   const commands = {
