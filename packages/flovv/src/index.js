@@ -1038,6 +1038,8 @@ export function createFlow(store, fn, commands, keys, remove) {
     });
 
     resolveFlowData(flows, values, (error) => {
+      resolveStateValues(props, values);
+
       if (isRef) {
         flows.forEach(([, flow]) => {
           if (dependencyFlows.has(flow)) return;
@@ -1049,7 +1051,7 @@ export function createFlow(store, fn, commands, keys, remove) {
         );
       }
       if (error) return task.fail(error);
-      resolveStateValues(props, values);
+
       task.success(isMultiple ? values : values[0]);
     });
   }
@@ -1231,7 +1233,7 @@ export function createFlow(store, fn, commands, keys, remove) {
       return;
     }
 
-    [...dependencyProps].some((value, key) => {
+    [...dependencyProps].some(([key, value]) => {
       if (state[key] === value) return false;
       stale = true;
       return true;
