@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.9.1](https://github.com/linq2js/flovv/compare/flovv@0.9.0...flovv@0.9.1) (2021-08-22)
+
+
+### Bug Fixes
+
+* critical bug of re-rendering ([aec21e5](https://github.com/linq2js/flovv/commit/aec21e5228d08f44a5f3c76888c1abd81a738a7f))
+
+
+
+
+
 # [0.9.0](https://github.com/linq2js/flovv/compare/flovv@0.8.1...flovv@0.9.0) (2021-08-20)
 
 
