@@ -132,6 +132,7 @@ function createFlowWrapper(flow, rerender) {
     loading: createStatusGetter(flow, "loading"),
     fail: createStatusGetter(flow, "fail"),
     success: createStatusGetter(flow, "success"),
+    partial: createStatusGetter(flow, "partial"),
     cancelled: createStatusGetter(flow, "cancelled"),
     disposed: createStatusGetter(flow, "disposed"),
   });

@@ -840,6 +840,9 @@ export function createTask(parent, onSuccess, onError) {
   const emitter = createEmitter();
 
   const task = {
+    get parent() {
+      return parent;
+    },
     get cancelled() {
       return cancelled || (parent && parent.cancelled);
     },
@@ -1033,6 +1036,10 @@ export function createFlow(store, fn, commands, keys, remove) {
       if (!removeStoreEventListener) {
         removeStoreEventListener = store.on("*", handleInvalidate);
       }
+      task.success();
+    },
+    partial(payload, task) {
+      handleChange("partial", payload, undefined, currentTask);
       task.success();
     },
     cancel(payload, task) {

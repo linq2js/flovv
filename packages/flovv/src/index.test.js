@@ -319,3 +319,17 @@ test("custom context", () => {
   store.restart(mainFlow, undefined, { context: { value: 2 } });
   expect(callback.mock.calls).toEqual([[undefined], [1], [2]]);
 });
+
+test("partial", () => {
+  const callback = jest.fn();
+  function* mainFlow() {
+    yield { partial: 1 };
+    yield { partial: 2 };
+    yield { partial: 3 };
+  }
+  const store = flovv();
+  const flow = store.flow(mainFlow);
+  flow.watch((e) => e.status === "partial" && callback(e.data));
+  flow.start();
+  expect(callback).toBeCalledTimes(3);
+});

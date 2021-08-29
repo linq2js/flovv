@@ -130,7 +130,7 @@ export interface RunOptions<TPayload, TResult> extends StartOptions {
   onError?: (error?: Error) => void;
 }
 
-export type Status = undefined | "loading" | "success" | "fail";
+export type Status = undefined | "loading" | "success" | "fail" | "partial";
 
 export interface FlowInstance<TPayload, TData> extends Promise<TData> {
   readonly status: Status;
