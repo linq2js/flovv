@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.10.0](https://github.com/linq2js/flovv/compare/flovv@0.9.1...flovv@0.10.0) (2021-08-29)
+
+
+### Features
+
+* support custom context ([1e7bbeb](https://github.com/linq2js/flovv/commit/1e7bbeb6a4a416c700cfbdf230cc0eabc3b7b864))
+
+
+
+
+
 ## [0.9.1](https://github.com/linq2js/flovv/compare/flovv@0.9.0...flovv@0.9.1) (2021-08-22)
 
 
