@@ -306,3 +306,16 @@ test("handle error for forked task", async () => {
   await delay(20);
   expect(callback).toBeCalledTimes(1);
 });
+
+test("custom context", () => {
+  const callback = jest.fn();
+  function* mainFlow() {
+    const value = yield { context: "value" };
+    callback(value);
+  }
+  const store = flovv();
+  store.restart(mainFlow);
+  store.restart(mainFlow, undefined, { context: { value: 1 } });
+  store.restart(mainFlow, undefined, { context: { value: 2 } });
+  expect(callback.mock.calls).toEqual([[undefined], [1], [2]]);
+});

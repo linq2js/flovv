@@ -390,20 +390,7 @@ export function createStore({
   const keys = new Map();
   const commands = {
     ...customCommands,
-    context(payload, task) {
-      const isMultiple = Array.isArray(payload);
-      if (typeof payload === "string" || isMultiple) {
-        const values = (isMultiple ? payload : [payload]).map(
-          (prop) => context[prop]
-        );
-        return task.success(isMultiple ? values : values[0]);
-      }
-      if (!payload || typeof payload !== "object") {
-        throw new Error("Invalid context payload");
-      }
-      context = { ...context, ...payload };
-      task.success(context);
-    },
+    ...createContextCommands(context),
     select(payload, task) {
       const isMultiple = Array.isArray(payload);
       const results = (isMultiple ? payload : [payload]).map((selector) =>
@@ -691,7 +678,7 @@ export function createStore({
   function getFlow(fn, key) {
     const originalKey = key;
     if (typeof fn === "string") {
-      const cacheKey = fn.replace(/\s+/g, "");
+      const cacheKey = fn.trim();
       let cachedFn = fnCache.get(cacheKey);
       if (!cachedFn) {
         const states = cacheKey.split(",");
@@ -726,27 +713,57 @@ export function createStore({
     return f;
   }
 
-  function start(fn, payload) {
-    return getFlow(fn).start(payload).data;
+  function getComamnds(customCommands, customContext) {
+    if (!customCommands && !customContext) return commands;
+    return {
+      ...commands,
+      ...customCommands,
+      ...(customContext ? createContextCommands(customContext) : null),
+    };
+  }
+
+  function start(
+    fn,
+    payload,
+    { context: customContext, commands: customCommands } = EMPTY_OBJECT
+  ) {
+    return getFlow(fn).start(
+      payload,
+      undefined,
+      getComamnds(customCommands, customContext)
+    ).data;
   }
 
   function run(
     flow,
     payload,
-    { onSuccess, onError, commands: customCommands } = EMPTY_OBJECT
+    {
+      onSuccess,
+      onError,
+      commands: customCommands,
+      context: customContext,
+    } = EMPTY_OBJECT
   ) {
     const task = createTask(undefined, onSuccess, onError);
     processFlow(
       flow(payload),
       undefined,
-      customCommands ? { ...commands, ...customCommands } : commands,
+      getComamnds(customCommands, customContext),
       task
     );
     return task;
   }
 
-  function restart(fn, payload) {
-    return getFlow(fn).restart(payload).data;
+  function restart(
+    fn,
+    payload,
+    { context: customContext, commands: customCommands } = EMPTY_OBJECT
+  ) {
+    return getFlow(fn).restart(
+      payload,
+      undefined,
+      getComamnds(customCommands, customContext)
+    ).data;
   }
 
   const store = {
@@ -793,6 +810,25 @@ export function createStore({
   }
 
   return store;
+}
+
+function createContextCommands(context) {
+  return {
+    context(payload, task) {
+      const isMultiple = Array.isArray(payload);
+      if (typeof payload === "string" || isMultiple) {
+        const values = (isMultiple ? payload : [payload]).map(
+          (prop) => context[prop]
+        );
+        return task.success(isMultiple ? values : values[0]);
+      }
+      if (!payload || typeof payload !== "object") {
+        throw new Error("Invalid context payload");
+      }
+      context = { ...context, ...payload };
+      task.success(context);
+    },
+  };
 }
 
 export function createTask(parent, onSuccess, onError) {
@@ -1144,7 +1180,7 @@ export function createFlow(store, fn, commands, keys, remove) {
     return promise;
   }
 
-  function start(payload, inputTask) {
+  function start(payload, inputTask, customCommands) {
     if (!stale) return flow;
     const iterator = fn(payload, ...keys);
     const task = createTask(
@@ -1182,7 +1218,12 @@ export function createFlow(store, fn, commands, keys, remove) {
         error = e;
       }
     } else {
-      processFlow(iterator, undefined, commands, task);
+      processFlow(
+        iterator,
+        undefined,
+        customCommands ? { ...commands, ...customCommands } : commands,
+        task
+      );
     }
 
     notifyChange();
@@ -1190,9 +1231,9 @@ export function createFlow(store, fn, commands, keys, remove) {
     return flow;
   }
 
-  function restart(payload, inputTask) {
+  function restart(payload, inputTask, customCommands) {
     stale = true;
-    start(payload, inputTask);
+    start(payload, inputTask, customCommands);
     return flow;
   }
 

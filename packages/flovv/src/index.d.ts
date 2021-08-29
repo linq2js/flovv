@@ -91,6 +91,11 @@ export type YieldExpression<TCommands = { [key: string]: any }> =
       delay?: number;
     } & TCommands);
 
+export interface StartOptions {
+  commands?: CommandCollection;
+  context?: {};
+}
+
 export interface Store<TState = { [key: string]: any }> {
   readonly state: TState;
   readonly status: Status;
@@ -103,11 +108,13 @@ export interface Store<TState = { [key: string]: any }> {
   ): FlowInstance<TPayload, TResult>;
   start<TPayload, TResult>(
     definition: Flow<TPayload, TResult>,
-    payload?: TPayload
+    payload?: TPayload,
+    options?: StartOptions
   ): TResult;
   restart<TPayload, TResult>(
     definition: Flow<TPayload, TResult>,
-    payload?: TPayload
+    payload?: TPayload,
+    options?: StartOptions
   ): TResult;
   ready(listener: Function): Function;
   run<TPayload, TResult>(
@@ -117,11 +124,10 @@ export interface Store<TState = { [key: string]: any }> {
   ): Task<TResult>;
 }
 
-export interface RunOptions<TPayload, TResult> {
+export interface RunOptions<TPayload, TResult> extends StartOptions {
   payload?: TPayload;
   onSuccess?: (result?: TResult) => void;
   onError?: (error?: Error) => void;
-  commands?: CommandCollection;
 }
 
 export type Status = undefined | "loading" | "success" | "fail";
