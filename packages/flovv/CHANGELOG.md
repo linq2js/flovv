@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.11.0](https://github.com/linq2js/flovv/compare/flovv@0.10.0...flovv@0.11.0) (2021-08-30)
+
+
+### Features
+
+* support exit flow ([f65c615](https://github.com/linq2js/flovv/commit/f65c6157fab2bb08f7850a9d46a99930b34abf94))
+* support partial flow data ([11a0332](https://github.com/linq2js/flovv/commit/11a03329472b49133cc571997e6c262e8314b2b8))
+
+
+
+
+
 # [0.10.0](https://github.com/linq2js/flovv/compare/flovv@0.9.1...flovv@0.10.0) (2021-08-29)
 
 
