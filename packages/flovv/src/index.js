@@ -971,6 +971,7 @@ export function createFlow(store, fn, commands, keys, remove) {
   let status = undefined;
   let previousTask;
   let currentTask = createTask();
+  let defaultTask = currentTask;
   let data;
   let error;
   let promise;
@@ -1023,6 +1024,12 @@ export function createFlow(store, fn, commands, keys, remove) {
 
   commands = {
     ...commands,
+    exit(payload, task) {
+      const prev = currentTask.prev;
+      if (!payload || prev === defaultTask || prev.status === "loading")
+        return task.success();
+      handleChange(prev.status, prev.result, prev.error, currentTask);
+    },
     ref(payload, task) {
       return resolveValues(true, payload, task);
     },
@@ -1100,6 +1107,9 @@ export function createFlow(store, fn, commands, keys, remove) {
   }
 
   function resolveFlowData(flows, values, onDone) {
+    if (!flows.length) {
+      return onDone();
+    }
     function resolve() {
       const loadingFlows = flows.filter(
         ([, flow]) => flow.status === "loading"
@@ -1206,6 +1216,7 @@ export function createFlow(store, fn, commands, keys, remove) {
       status = "cancelled";
       notifyChange();
     });
+    task.prev = currentTask;
     dependencyFlows.clear();
     dependencyProps.clear();
     invalidateEvents.clear();

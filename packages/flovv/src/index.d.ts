@@ -52,6 +52,8 @@ export type YieldExpression<TCommands = { [key: string]: any }> =
 
       invalidate?: string | string[];
 
+      exit?: boolean;
+
       error?: [((error: Error) => any) | FlowGenerator | any, ...any[]];
       fork?: FlowGenerator | FlowGenerator[] | YieldExpression;
       call?: Function | [Function, ...any[]];

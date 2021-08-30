@@ -333,3 +333,25 @@ test("partial", () => {
   flow.start();
   expect(callback).toBeCalledTimes(3);
 });
+
+test("exit: first run", () => {
+  const results = [1, 2, 3];
+  function* mainFlow() {
+    yield { exit: true };
+    return results.shift();
+  }
+  const store = flovv();
+  expect(store.restart(mainFlow)).toBe(1);
+});
+
+test("exit: second run", () => {
+  const results = [1, 2, 3];
+  function* mainFlow() {
+    yield { exit: true };
+    return results.shift();
+  }
+  const store = flovv();
+
+  expect(store.restart(mainFlow)).toBe(1);
+  expect(store.restart(mainFlow)).toBe(1);
+});
