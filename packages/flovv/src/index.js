@@ -980,6 +980,7 @@ export function createFlow(store, fn, commands, keys, remove) {
   const dependencyFlows = new Set();
   const dependencyProps = new Map();
   const invalidateEvents = new Set();
+  const stateWatchers = new Map();
   const emitter = createEmitter();
   const flow = {
     remove() {
@@ -1037,10 +1038,16 @@ export function createFlow(store, fn, commands, keys, remove) {
       return resolveValues(false, payload, task);
     },
     invalidate(payload, task) {
-      (Array.isArray(payload) ? payload : [payload]).forEach((x) =>
-        invalidateEvents.add(x)
-      );
-      if (!removeStoreEventListener) {
+      (Array.isArray(payload) ? payload : [payload]).forEach((x) => {
+        if (typeof x === "function") {
+          if (!stateWatchers.has(x)) {
+            stateWatchers.set(x, x(store.state));
+          }
+        } else {
+          invalidateEvents.add(x);
+        }
+      });
+      if (!removeStoreEventListener && invalidateEvents.size) {
         removeStoreEventListener = store.on("*", handleInvalidate);
       }
       task.success();
@@ -1220,6 +1227,9 @@ export function createFlow(store, fn, commands, keys, remove) {
     dependencyFlows.clear();
     dependencyProps.clear();
     invalidateEvents.clear();
+    stateWatchers.clear();
+    removeStoreEventListener && removeStoreEventListener();
+    removeStoreEventListener = undefined;
     previousTask = currentTask;
     currentTask = task;
     stale = false;
@@ -1275,6 +1285,7 @@ export function createFlow(store, fn, commands, keys, remove) {
   function handleStateChange(state) {
     if (stale) return;
 
+    // in case of flow is state selector
     if (selector) {
       try {
         error = null;
@@ -1292,11 +1303,24 @@ export function createFlow(store, fn, commands, keys, remove) {
       return;
     }
 
-    [...dependencyProps].some(([key, value]) => {
-      if (state[key] === value) return false;
-      stale = true;
-      return true;
-    });
+    if (!stale) {
+      stateWatchers.forEach((value, key) => {
+        if (stale) return;
+        const next = key(state);
+        if (!objectEqual(next, value)) {
+          stale = true;
+          stateWatchers.set(key, next);
+        }
+      });
+    }
+
+    if (!stale) {
+      [...dependencyProps].some(([key, value]) => {
+        if (state[key] === value) return false;
+        stale = true;
+        return true;
+      });
+    }
 
     if (stale) notifyChange(true);
   }

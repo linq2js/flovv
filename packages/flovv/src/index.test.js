@@ -255,7 +255,7 @@ test("kyed flow", () => {
   expect(f2.data).toBe(2);
 });
 
-test("invalidate", () => {
+test("invalidate: events", () => {
   function* getRemoteData() {
     yield { invalidate: "changed" };
     return Math.random();
@@ -270,6 +270,34 @@ test("invalidate", () => {
   const v3 = store.flow(getRemoteData).start().data;
 
   expect(v3).not.toBe(v1);
+});
+
+test("invalidate: state selectors", () => {
+  function* getRemoteData() {
+    yield { invalidate: (state) => state.value };
+    return Math.random();
+  }
+
+  function* updateState(state) {
+    yield { set: state };
+  }
+
+  const store = flovv();
+  const v1 = store.flow(getRemoteData).start().data;
+  const v2 = store.flow(getRemoteData).start().data;
+  expect(v1).toBe(v2);
+
+  store.flow(updateState).restart({ data: 1 });
+  const v3 = store.flow(getRemoteData).start().data;
+  expect(v1).toBe(v3);
+
+  store.flow(updateState).restart({ value: 1 });
+  const v4 = store.flow(getRemoteData).start().data;
+  expect(v3).not.toBe(v4);
+
+  store.flow(updateState).restart({ value: 1 });
+  const v5 = store.flow(getRemoteData).start().data;
+  expect(v4).toBe(v5);
 });
 
 test("handle error", async () => {

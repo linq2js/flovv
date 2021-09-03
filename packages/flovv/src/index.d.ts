@@ -50,7 +50,10 @@ export type YieldExpression<TCommands = { [key: string]: any }> =
       start?: Flow | [Flow<TPayload>, TPayload, ...any[]];
       restart?: Flow | [Flow<TPayload>, TPayload, ...any[]];
 
-      invalidate?: string | string[];
+      invalidate?:
+        | string
+        | ((state: any) => any)
+        | (string | ((state: any) => any))[];
 
       exit?: boolean;
 
