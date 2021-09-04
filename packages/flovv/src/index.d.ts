@@ -52,8 +52,8 @@ export type YieldExpression<TCommands = { [key: string]: any }> =
 
       invalidate?:
         | string
-        | ((state: any) => any)
-        | (string | ((state: any) => any))[];
+        | (string | ((e: any) => boolean))[]
+        | ((e: any) => boolean);
 
       exit?: boolean;
 

@@ -272,9 +272,58 @@ test("invalidate: events", () => {
   expect(v3).not.toBe(v1);
 });
 
-test("invalidate: state selectors", () => {
+test("invalidate: handlers", () => {
   function* getRemoteData() {
-    yield { invalidate: (state) => state.value };
+    yield {
+      invalidate: (e) => {
+        console.log(e);
+        return e.type === "changed1" || e.type === "changed2";
+      },
+    };
+    return Math.random();
+  }
+  const store = flovv();
+  const v1 = store.flow(getRemoteData).start().data;
+  const v2 = store.flow(getRemoteData).start().data;
+
+  expect(v1).toBe(v2);
+  store.emit("changed1");
+  store.emit("changed2");
+
+  const v3 = store.flow(getRemoteData).start().data;
+
+  expect(v3).not.toBe(v1);
+});
+
+test("ref: flow selector", () => {
+  function* getData() {
+    yield { ref: { flow: valueFlow, select: (data) => data.value } };
+    return Math.random();
+  }
+
+  function* valueFlow(props) {
+    yield { get: "something" };
+    return {
+      value: 1,
+      ...props,
+    };
+  }
+
+  const store = flovv();
+  const v1 = store.start(getData);
+  const v2 = store.start(getData);
+  expect(v1).toBe(v2);
+  store.restart(valueFlow, { a: 1, b: 2 });
+  const v3 = store.start(getData);
+  expect(v1).toBe(v3);
+  store.restart(valueFlow, { value: 2 });
+  const v4 = store.start(getData);
+  expect(v1).not.toBe(v4);
+});
+
+test("ref: state selectors", () => {
+  function* getRemoteData() {
+    yield { ref: { select: (state) => state.value } };
     return Math.random();
   }
 

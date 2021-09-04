@@ -8,6 +8,17 @@ export const LAZY_CHANGE_EVENT = "#lazy_change";
 export const READY_EVENT = "#ready";
 export const FAIL_EVENT = "#fail";
 const enqueue = Promise.resolve().then.bind(Promise.resolve());
+const selectorCache = new Map();
+
+function getSelector(selector) {
+  let fn = selectorCache.get(selector);
+  if (!fn) {
+    const prop = selector;
+    fn = (state) => state[prop];
+    selectorCache.set(selector, fn);
+  }
+  return fn;
+}
 
 function processNext(iterator, payload) {
   if (!iterator) return { done: true };
@@ -977,9 +988,9 @@ export function createFlow(store, fn, commands, keys, remove) {
   let promise;
   let selector;
   let removeStoreEventListener;
-  const dependencyFlows = new Set();
-  const dependencyProps = new Map();
+  const dependencyFlows = new Map();
   const invalidateEvents = new Set();
+  const invalidateHandlers = new Set();
   const stateWatchers = new Map();
   const emitter = createEmitter();
   const flow = {
@@ -1040,14 +1051,15 @@ export function createFlow(store, fn, commands, keys, remove) {
     invalidate(payload, task) {
       (Array.isArray(payload) ? payload : [payload]).forEach((x) => {
         if (typeof x === "function") {
-          if (!stateWatchers.has(x)) {
-            stateWatchers.set(x, x(store.state));
-          }
+          invalidateHandlers.add(x);
         } else {
           invalidateEvents.add(x);
         }
       });
-      if (!removeStoreEventListener && invalidateEvents.size) {
+      if (
+        !removeStoreEventListener &&
+        (invalidateEvents.size || invalidateHandlers.size)
+      ) {
         removeStoreEventListener = store.on("*", handleInvalidate);
       }
       task.success();
@@ -1089,6 +1101,22 @@ export function createFlow(store, fn, commands, keys, remove) {
       if (typeof target === "string") {
         return props.push([index, target]);
       }
+      if (typeof target === "object") {
+        if (typeof target.select !== "function") {
+          throw new Error(`Exepct selector but got ${typeof target.select}`);
+        }
+
+        // yield { ref: { flow: Flow, select: selector } }
+        if (target.flow) {
+          const flow = store.flow(target.flow);
+          flows.push([index, flow, target.select]);
+          flow.start();
+          return;
+        }
+        // yield { ref: { select: selector } }
+        return props.push([index, target.select]);
+      }
+      // flow
       const flow = store.flow(target);
       flows.push([index, flow]);
       flow.start();
@@ -1098,14 +1126,31 @@ export function createFlow(store, fn, commands, keys, remove) {
       resolveStateValues(props, values);
 
       if (isRef) {
-        flows.forEach(([, flow]) => {
+        flows.forEach(([index, flow, selector]) => {
           if (dependencyFlows.has(flow)) return;
-          dependencyFlows.add(flow);
-          flow.watch(handleFlowChange);
+          let prev = selector ? selector(flow.data) : undefined;
+          const unwatch = flow.watch(
+            selector
+              ? () => {
+                  if (selector) {
+                    const next = selector(flow.data);
+                    if (objectEqual(next, prev)) return;
+                  }
+                  handleFlowChange();
+                }
+              : handleFlowChange
+          );
+          dependencyFlows.set(flow, unwatch);
+          if (selector) {
+            values[index] = selector(flow.data);
+          }
         });
-        props.forEach(([index, prop]) =>
-          dependencyProps.set(prop, values[index])
-        );
+        props.forEach(([index, prop]) => {
+          const watcher = addStateWatcher(prop, prop);
+          if (typeof prop !== "string") {
+            values[index] = watcher.value;
+          }
+        });
       }
       if (error) return task.fail(error);
 
@@ -1145,8 +1190,14 @@ export function createFlow(store, fn, commands, keys, remove) {
     props.map(([index, prop]) => (values[index] = state[prop]));
   }
 
-  function handleInvalidate({ type }) {
-    if (stale || !invalidateEvents.has(type)) return;
+  function handleInvalidate(e) {
+    if (stale) return;
+
+    const shouldInvalidate =
+      invalidateEvents.has(e.type) ||
+      (invalidateHandlers.size && [...invalidateHandlers].some((x) => x(e)));
+    if (!shouldInvalidate) return;
+
     stale = true;
     notifyChange();
   }
@@ -1224,9 +1275,10 @@ export function createFlow(store, fn, commands, keys, remove) {
       notifyChange();
     });
     task.prev = currentTask;
+    dependencyFlows.forEach((unwatch) => unwatch());
     dependencyFlows.clear();
-    dependencyProps.clear();
     invalidateEvents.clear();
+    invalidateHandlers.clear();
     stateWatchers.clear();
     removeStoreEventListener && removeStoreEventListener();
     removeStoreEventListener = undefined;
@@ -1304,25 +1356,32 @@ export function createFlow(store, fn, commands, keys, remove) {
     }
 
     if (!stale) {
-      stateWatchers.forEach((value, key) => {
+      stateWatchers.forEach((item) => {
+        const { value, selector } = item;
         if (stale) return;
-        const next = key(state);
+        const next = selector(state);
         if (!objectEqual(next, value)) {
           stale = true;
-          stateWatchers.set(key, next);
+          item.value = next;
         }
       });
     }
 
-    if (!stale) {
-      [...dependencyProps].some(([key, value]) => {
-        if (state[key] === value) return false;
-        stale = true;
-        return true;
-      });
-    }
-
     if (stale) notifyChange(true);
+  }
+
+  function addStateWatcher(key, selector) {
+    let watcher = stateWatchers.get(key);
+    if (watcher) return watcher;
+    if (typeof selector === "string") {
+      selector = getSelector(selector);
+    }
+    watcher = {
+      selector,
+      value: selector(store.state),
+    };
+    stateWatchers.set(key, watcher);
+    return watcher;
   }
 
   return flow;
