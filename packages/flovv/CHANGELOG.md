@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.12.0](https://github.com/linq2js/flovv/compare/flovv@0.11.1...flovv@0.12.0) (2021-09-04)
+
+
+### Features
+
+* improve invalidate and ref ([ea14a33](https://github.com/linq2js/flovv/commit/ea14a33062408c23328159e34765c95ba94d9f61))
+
+
+
+
+
 ## [0.11.1](https://github.com/linq2js/flovv/compare/flovv@0.11.0...flovv@0.11.1) (2021-09-03)
 
 **Note:** Version bump only for package flovv
