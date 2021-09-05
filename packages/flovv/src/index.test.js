@@ -432,3 +432,14 @@ test("exit: second run", () => {
   expect(store.restart(mainFlow)).toBe(1);
   expect(store.restart(mainFlow)).toBe(1);
 });
+
+test("merge data", () => {
+  function* mainFlow(props) {
+    yield { merge: (data, prevData) => ({ ...prevData, ...data }) };
+
+    return props;
+  }
+  const store = flovv();
+  expect(store.restart(mainFlow, { a: 1 })).toEqual({ a: 1 });
+  expect(store.restart(mainFlow, { b: 2 })).toEqual({ a: 1, b: 2 });
+});

@@ -31,6 +31,10 @@ export type YieldExpression<TCommands = { [key: string]: any }> =
         | { [event: string]: (payload?: any) => boolean }
         | Flow;
 
+      merge:
+        | ((data: any, prev: any) => (fn: (data: any) => any) => any)
+        | ((data: any, prev: any) => any);
+
       all?: { [key: string]: YieldExpression } | YieldExpression[];
       done?: { [key: string]: YieldExpression } | YieldExpression[];
       any?: { [key: string]: YieldExpression } | YieldExpression[];

@@ -987,6 +987,8 @@ export function createFlow(store, fn, commands, keys, remove) {
   let error;
   let promise;
   let selector;
+  let hasData = false;
+  let merger = undefined;
   let removeStoreEventListener;
   const dependencyFlows = new Map();
   const invalidateEvents = new Set();
@@ -1036,6 +1038,21 @@ export function createFlow(store, fn, commands, keys, remove) {
 
   commands = {
     ...commands,
+    merge(payload, task) {
+      if (typeof payload !== "function") {
+        throw new Error(`Expect merge function but got ${typeof payload}`);
+      }
+      const prevMerger = merger;
+      const nextMerger = payload;
+      merger = (data, originalData) => {
+        const result = nextMerger(data, originalData);
+        if (typeof result === "function") {
+          return result((data) => prevMerger(data, originalData));
+        }
+        return result;
+      };
+      task.success();
+    },
     exit(payload, task) {
       const prev = currentTask.prev;
       if (!payload || prev === defaultTask || prev.status === "loading")
@@ -1228,9 +1245,19 @@ export function createFlow(store, fn, commands, keys, remove) {
     if (task !== currentTask) {
       return;
     }
+
     error = e;
-    data = d;
+
     status = s;
+
+    if (s === "partial" || s === "success") {
+      if (hasData && merger) {
+        d = merger(d, data);
+      }
+      hasData = true;
+    }
+
+    data = d;
     notifyChange();
   }
 
@@ -1275,6 +1302,7 @@ export function createFlow(store, fn, commands, keys, remove) {
       notifyChange();
     });
     task.prev = currentTask;
+    merger = undefined;
     dependencyFlows.forEach((unwatch) => unwatch());
     dependencyFlows.clear();
     invalidateEvents.clear();
