@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.15.0](https://github.com/linq2js/flovv/compare/flovv@0.14.0...flovv@0.15.0) (2021-09-05)
+
+
+### Features
+
+* can force flow as stale ([fa5d858](https://github.com/linq2js/flovv/commit/fa5d858eff64bc1f3d1457c99a2568cd97b9490c))
+
+
+
+
+
 # [0.14.0](https://github.com/linq2js/flovv/compare/flovv@0.13.1...flovv@0.14.0) (2021-09-05)
 
 
