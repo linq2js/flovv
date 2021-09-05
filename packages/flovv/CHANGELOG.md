@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.13.0](https://github.com/linq2js/flovv/compare/flovv@0.12.0...flovv@0.13.0) (2021-09-05)
+
+
+### Features
+
+* support merging flow data ([0a166cd](https://github.com/linq2js/flovv/commit/0a166cd06f8f62a19661f52ec097800c969d20dc))
+
+
+
+
+
 # [0.12.0](https://github.com/linq2js/flovv/compare/flovv@0.11.1...flovv@0.12.0) (2021-09-04)
 
 
