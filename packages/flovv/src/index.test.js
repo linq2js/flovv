@@ -443,3 +443,34 @@ test("merge data", () => {
   expect(store.restart(mainFlow, { a: 1 })).toEqual({ a: 1 });
   expect(store.restart(mainFlow, { b: 2 })).toEqual({ a: 1, b: 2 });
 });
+
+test("update flow", () => {
+  function* flow1() {
+    yield { get: "something" };
+    return 1;
+  }
+
+  function* flow2() {
+    yield { get: "something" };
+    return 2;
+  }
+
+  function* flow3() {
+    yield { get: "something" };
+    return 3;
+  }
+
+  function* mainFlow() {
+    yield { get: flow1 };
+    yield { get: flow2 };
+
+    yield { set: [flow1, 2] };
+    yield { set: [flow2, () => 4] };
+    yield { set: [flow3, () => 6] };
+  }
+  const store = flovv();
+  store.start(mainFlow);
+  expect(store.start(flow1)).toBe(2);
+  expect(store.start(flow2)).toBe(4);
+  expect(store.start(flow3)).toBe(3);
+});

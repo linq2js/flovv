@@ -1020,6 +1020,11 @@ export function createFlow(store, fn, commands, keys, remove) {
       if (status === "loading") {
         return getPromise().finally(() => flow.$$update(value));
       }
+      // do not update if flow is not started yet
+      if (status === "pending" && typeof value === "function") {
+        return;
+      }
+
       currentTask = createTask();
       status = "success";
       data = typeof value === "function" ? value(data) : value;
