@@ -416,6 +416,11 @@ export function createStore({
       );
       return task.success(isMultiple ? flowArray : flowArray[0]);
     },
+    stale(payload, task) {
+      const args = Array.isArray(payload) ? payload : [payload];
+      getFlow(...args).$$stale();
+      task.success();
+    },
     start(payload, task) {
       const [fn, p, ...keys] = Array.isArray(payload) ? payload : [payload];
       return getFlow(fn, keys.length ? keys : undefined).start(p, task);
@@ -1015,13 +1020,18 @@ export function createFlow(store, fn, commands, keys, remove) {
     then: (onResolve, onReject) => getPromise().then(onResolve, onReject),
     catch: (onReject) => getPromise().catch(onReject),
     cancel,
+    $$stale() {
+      if (!status || stale || status === "loading") return;
+      stale = true;
+      notifyChange(true);
+    },
     $$stateChange: handleStateChange,
     $$update(value) {
       if (status === "loading") {
         return getPromise().finally(() => flow.$$update(value));
       }
       // do not update if flow is not started yet
-      if (status === "pending" && typeof value === "function") {
+      if (!status && typeof value === "function") {
         return;
       }
 

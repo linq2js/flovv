@@ -54,6 +54,8 @@ export type YieldExpression<TCommands = { [key: string]: any }> =
       start?: Flow | [Flow<TPayload>, TPayload, ...any[]];
       restart?: Flow | [Flow<TPayload>, TPayload, ...any[]];
 
+      stale?: Flow | [Flow, ...any[]];
+
       invalidate?:
         | string
         | (string | ((e: any) => boolean))[]

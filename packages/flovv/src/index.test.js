@@ -474,3 +474,21 @@ test("update flow", () => {
   expect(store.start(flow2)).toBe(4);
   expect(store.start(flow3)).toBe(3);
 });
+
+test("force stale", () => {
+  function* getValue() {
+    yield { get: "something" };
+    return Math.random();
+  }
+  function* mainFlow() {
+    const v1 = yield { get: getValue };
+
+    yield { stale: getValue };
+
+    const v2 = yield { get: getValue };
+    return [v1, v2];
+  }
+  const store = flovv();
+  const results = store.start(mainFlow);
+  expect(results[0]).not.toBe(results[1]);
+});
