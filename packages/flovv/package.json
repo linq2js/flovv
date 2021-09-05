@@ -1,6 +1,6 @@
 {
   "name": "flovv",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "description": "A library for controlling app flows with ease",

@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.14.0](https://github.com/linq2js/flovv/compare/flovv@0.13.1...flovv@0.14.0) (2021-09-05)
+
+
+### Features
+
+* lazy update flow data ([97e71a3](https://github.com/linq2js/flovv/commit/97e71a3bfd5f1cc98101924d9b8136dbcfd9e6ab))
+
+
+
+
+
 ## [0.13.1](https://github.com/linq2js/flovv/compare/flovv@0.13.0...flovv@0.13.1) (2021-09-05)
 
 **Note:** Version bump only for package flovv
