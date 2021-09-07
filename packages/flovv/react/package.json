@@ -1,4 +1,4 @@
 {
-  "main": "../src/react.js",
+  "main": "../dist/react.js",
   "types": "../src/react.d.ts"
 }
