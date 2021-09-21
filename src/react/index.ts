@@ -137,7 +137,7 @@ function handleSuspeseAndErrorBoundary(
     throw flow.error;
   }
 
-  if (suspense && flow.status === "faulted") {
+  if (suspense && flow.status === "running") {
     throw new Promise((resolve) => {
       flow.on("update", resolve);
     });
