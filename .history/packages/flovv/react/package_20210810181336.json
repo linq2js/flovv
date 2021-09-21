@@ -1,0 +1,4 @@
+{
+  "main": "../src/react.js",
+  "types": "../dist/react.d.ts"
+}

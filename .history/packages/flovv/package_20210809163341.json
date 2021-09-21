@@ -1,0 +1,7 @@
+{
+  "name": "flovv",
+  "main": "./dist/index.js",
+  "types": "./src/index.d.ts",
+  "description": "",
+  "version": "0.0.0"
+}

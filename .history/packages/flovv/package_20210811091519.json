@@ -1,0 +1,42 @@
+{
+  "name": "flovv",
+  "version": "0.0.0",
+  "main": "./dist/index.js",
+  "types": "./src/index.d.ts",
+  "description": "A library for controlling app flows with ease",
+  "files": [
+    "src/*",
+    "dist/*",
+    "react/*"
+  ],
+  "keywords": [
+    "state-manager",
+    "state-management",
+    "store",
+    "flux",
+    "action",
+    "async",
+    "async-dispatching",
+    "async-action",
+    "dispatching",
+    "action-call",
+    "cache",
+    "remote",
+    "flow"
+  ],
+  "dependencies": {},
+  "bugs": {
+    "url": "https://github.com/linq2js/flovv/issues"
+  },
+  "homepage": "https://github.com/linq2js/flovv#readme",
+  "jest": {
+    "transform": {
+      "^.+\\.[t|j]sx?$": "babel-jest"
+    },
+    "modulePathIgnorePatterns": [
+      "<rootDir>/dist/"
+    ]
+  },
+  "author": "linq2js",
+  "license": "ISC"
+}

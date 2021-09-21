@@ -1,0 +1,244 @@
+# FLOVV
+
+A library for controlling app flows with ease
+
+## Installation
+
+**Using NPM**
+
+```bash
+npm i flovv --save
+```
+
+**or YARN**
+
+```bash
+yarn add flovv
+```
+
+## Getting Started
+
+Creating counter app
+
+```jsx
+import flovv from "flovv";
+import { Provider, useFlow } from "flovv/react";
+
+// create flovv store with initial state
+const store = flovv({ state: { count: 1 } });
+// get count value flow
+function* GetCount() {
+  // if we want to read count value, just call { get: "count" }
+  // if we use @ prefix, the GetCount flow will be stale whenever the count state is changed
+  // and all components that using GetCount flow, are rerendered
+  return yield { get: "@count" };
+}
+// increase count flow
+function* Increment() {
+  // using { set } expression to update specific state value
+  yield { set: { count: (prev) => prev + 1 } };
+}
+const Counter = () => {
+  // start GetCount flow and retrieve flow object
+  // destructure flow object to get flow data
+  const { data: count } = useFlow(GetCount).start();
+  // retrieve flow object
+  const increment = useFlow(Increment);
+
+  return (
+    <>
+      <h1>{count}</h1>
+      {/* should call restart() because if we call start() the Increment flow will be executed once */}
+      <button onClick={() => increment.restart()}>Increment</button>
+    </>
+  );
+};
+
+function App() {
+  return (
+    <Provider store={store}>
+      <Counter />
+    </Provider>
+  );
+}
+```
+
+## API References
+
+### yield get
+
+Getting state value
+
+```js
+function* GetState() {
+  // without stale option
+  const count = yield { get: "count" };
+  // with stale option
+  const count = yield { get: "@count" };
+}
+```
+
+### yield set
+
+Updating state value
+
+```js
+function* Update() {
+  yield {
+    set: {
+      state1: value1,
+      state2: (prev) => next,
+      state3: promise,
+    },
+  };
+}
+```
+
+### yield delay
+
+Delay flow execution in specific time (ms)
+
+```js
+function* AsyncIncrement() {
+  yield { delay: 1000 };
+  yield { set: { count: (prev) => prev + 1 } };
+}
+```
+
+### yield on/emit/when
+
+Hanlding store event
+
+```js
+function LoginApi(username, password) {}
+
+function* Login({ username, password }) {
+  yield { call: [LoginApi, username, password] };
+  const profile = { username };
+  yield { emit: ["user_logged_in", profile] };
+}
+
+function* WaitUntilUserLoggedIn() {
+  const profile = yield { when: "user_logged_in" };
+  // do somthing after user login
+}
+
+function* HandleUserLoggedIn(params) {
+  yield {
+    on: {
+      user_logged_in(profile) {
+        console.log(profile);
+      },
+    },
+  };
+}
+```
+
+### yield flow
+
+Retrieving flow object
+
+```js
+function* LoadPosts() {
+  yield { call: LoadPostsApi };
+}
+
+function* MainFlow() {
+  while (true) {
+    yield { when: "cancel_load_posts" };
+    const loadPostsFlow = yield { flow: LoadPosts };
+    loadPostsFlow.cancel();
+  }
+}
+```
+
+### yield all
+
+Waiting for multiple async actions/flows until these get done or error
+
+```js
+function* Flow1() {}
+function* Flow2() {}
+
+function* MainFlow() {
+  const [flow1Result, flow2Result] = yield { all: [Flow1(), Flow2()] };
+  const results = yield { all: { flow1: Flow1(), flow2: Flow2() } };
+  console.log(results.flow1);
+  console.log(results.flow2);
+}
+```
+
+### yield any
+
+Waiting for multiple async actions/flows until one of these get done or error
+
+```js
+function* MainFlow() {
+  const results = yield {
+    any: {
+      timeout: { delay: 1000 },
+      posts: { call: LoadPostsAPI },
+    },
+  };
+  if ("timeout" in results) return;
+  // process posts
+  console.log(results.posts);
+}
+```
+
+### yield done
+
+Waiting for multiple async actions/flows until these get done even one of these gets an error
+
+```js
+function* MainFlow() {
+  const { task1, task2 } = yield {
+    done: {
+      task1: Task1(),
+      task2: Task2(),
+    },
+  };
+  console.log(task1.result, task1.error);
+  console.log(task2.result, task2.error);
+}
+```
+
+### yield once
+
+Executing flow once
+
+```js
+function* InitFlow1() {
+  yield {
+    set: {
+      state1: defaultStateValue1,
+      state2: defaultStateValue2,
+    },
+  };
+}
+function InitFlow2() {
+    yield {
+    set: {
+      state3: defaultStateValue3,
+      state4: defaultStateValue4,
+    },
+  };
+}
+function* ModuleFlow() {
+  yield { once: [InitFlow1, InitFlow2] };
+  const state1 = yield { get: "state1" };
+}
+```
+
+### yield fork
+
+Forking specific flow to new executing thread
+
+```js
+function* MainFlow() {
+  const task1 = yield { fork: Flow1() };
+  // task1.cancel()
+
+  const [task1, task2] = yield { fork: [Flow1(), Flow2()] };
+}
+```

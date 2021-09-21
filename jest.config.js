@@ -1,13 +1,9 @@
-const ignorePatterns = ["node_modules/", "dist/", "react-demo/"];
-
 module.exports = {
-  collectCoverage: true,
-  collectCoverageFrom: ["packages/**/*.{js}"],
-  watchPathIgnorePatterns: ignorePatterns,
-  testPathIgnorePatterns: ignorePatterns,
-  coveragePathIgnorePatterns: ignorePatterns,
-  roots: ["packages/"],
+  roots: ["<rootDir>/src"],
+  testEnvironment: "jsdom",
   transform: {
-    "^.+\\.jsx?$": "babel-jest",
+    "^.+\\.(t|j)sx?$": "ts-jest",
   },
+  testRegex: "(/__tests__/.*|(\\.|/)(test|spec))\\.(t|j)sx?$",
+  moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
 };
