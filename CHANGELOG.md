@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.0.3](https://github.com/linq2js/flovv/compare/v1.0.2...v1.0.3) (2021-09-21)
+
+
+### Bug Fixes
+
+* suspense ([5902a26](https://github.com/linq2js/flovv/commit/5902a262b59bc3ef63006976a4f24311e7cbf417))
+* suspense ([12e57a8](https://github.com/linq2js/flovv/commit/12e57a80bcb767e9e939feac1e4bbf2cc2b6608f))
+
 ### [1.0.2](https://github.com/linq2js/flovv/compare/v1.0.1...v1.0.2) (2021-09-21)
 
 
