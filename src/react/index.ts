@@ -44,6 +44,7 @@ export function useFlow<T extends AnyFunc>(...args: any[]): FlowHook<T> {
   const { controller, errorBoundary, suspense } = React.useContext(flowContext);
   const [key, fn] = args.length > 1 ? args : [args[0], args[1]];
   const rerender = React.useState<any>()[1];
+  const renderingRef = React.useRef(false);
   const flowRef = React.useRef<Flow<T>>();
   const flowHook: FlowHook<FlowDataInfer<T>> = React.useMemo(() => {
     const result = {
@@ -79,10 +80,25 @@ export function useFlow<T extends AnyFunc>(...args: any[]): FlowHook<T> {
       },
       start(...args: Parameters<T>) {
         flowRef.current?.start(...args);
+
+        renderingRef.current &&
+          handleSuspeseAndErrorBoundary(
+            suspense,
+            errorBoundary,
+            flowRef.current
+          );
         return result;
       },
       restart(...args: Parameters<T>) {
         flowRef.current?.restart(...args);
+
+        renderingRef.current &&
+          handleSuspeseAndErrorBoundary(
+            suspense,
+            errorBoundary,
+            flowRef.current
+          );
+
         return result;
       },
       cancel() {
@@ -91,11 +107,13 @@ export function useFlow<T extends AnyFunc>(...args: any[]): FlowHook<T> {
       },
     };
     return result;
-  }, []);
+  }, [suspense, errorBoundary]);
 
+  renderingRef.current = true;
   flowRef.current = controller.flow(key, fn);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    renderingRef.current = false;
     return controller.on("#flow", (flow) => {
       if (flow.key === key) {
         rerender({});
@@ -103,17 +121,27 @@ export function useFlow<T extends AnyFunc>(...args: any[]): FlowHook<T> {
     });
   });
 
-  if (errorBoundary && flowRef.current?.status === "faulted") {
-    throw flowRef.current.error;
-  }
-
-  if (suspense && flowRef.current?.status === "running") {
-    throw new Promise((resolve) => {
-      flowRef.current?.on("update", resolve);
-    });
-  }
+  handleSuspeseAndErrorBoundary(suspense, errorBoundary, flowRef.current);
 
   return flowHook;
+}
+
+function handleSuspeseAndErrorBoundary(
+  suspense: boolean,
+  errorBoundary: boolean,
+  flow: Flow | undefined
+) {
+  if (!flow) return;
+
+  if (errorBoundary && flow.status === "faulted") {
+    throw flow.error;
+  }
+
+  if (suspense && flow.status === "faulted") {
+    throw new Promise((resolve) => {
+      flow.on("update", resolve);
+    });
+  }
 }
 
 export const FlowProvider: React.FC<FlowProviderProps> = ({
