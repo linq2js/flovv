@@ -46,67 +46,8 @@ export function useFlow<T extends AnyFunc>(...args: any[]): FlowHook<T> {
   const rerender = React.useState<any>()[1];
   const renderingRef = React.useRef(false);
   const flowRef = React.useRef<Flow<T>>();
-  const flowHook: FlowHook<FlowDataInfer<T>> = React.useMemo(() => {
-    const result = {
-      get status() {
-        return flowRef.current?.status || "unknown";
-      },
-      get error() {
-        return flowRef.current?.error;
-      },
-      get running() {
-        return result.status === "running";
-      },
-      get completed() {
-        return result.status === "completed";
-      },
-      get faulted() {
-        return result.status === "faulted";
-      },
-      get idle() {
-        return result.status === "idle";
-      },
-      get data() {
-        return flowRef.current?.data;
-      },
-      get current() {
-        return flowRef.current?.current;
-      },
-      get cancelled() {
-        return flowRef.current?.cancelled || false;
-      },
-      get stale() {
-        return flowRef.current?.stale || false;
-      },
-      start(...args: Parameters<T>) {
-        flowRef.current?.start(...args);
-
-        renderingRef.current &&
-          handleSuspeseAndErrorBoundary(
-            suspense,
-            errorBoundary,
-            flowRef.current
-          );
-        return result;
-      },
-      restart(...args: Parameters<T>) {
-        flowRef.current?.restart(...args);
-
-        renderingRef.current &&
-          handleSuspeseAndErrorBoundary(
-            suspense,
-            errorBoundary,
-            flowRef.current
-          );
-
-        return result;
-      },
-      cancel() {
-        flowRef.current?.cancel();
-        return result;
-      },
-    };
-    return result;
+  const { flowHook, handleSuspeseAndErrorBoundary } = React.useMemo(() => {
+    return createFlowHook(flowRef, renderingRef, suspense, errorBoundary);
   }, [suspense, errorBoundary]);
 
   renderingRef.current = true;
@@ -121,33 +62,84 @@ export function useFlow<T extends AnyFunc>(...args: any[]): FlowHook<T> {
     });
   });
 
-  handleSuspeseAndErrorBoundary(suspense, errorBoundary, flowRef.current);
+  handleSuspeseAndErrorBoundary();
 
   return flowHook;
 }
 
-function handleSuspeseAndErrorBoundary(
+function createFlowHook<T extends AnyFunc>(
+  flowRef: React.MutableRefObject<Flow<T> | undefined>,
+  renderingRef: React.MutableRefObject<boolean>,
   suspense: boolean,
-  errorBoundary: boolean,
-  flow: Flow | undefined
+  errorBoundary: boolean
 ) {
-  if (!flow) return;
+  function handleSuspeseAndErrorBoundary() {
+    if (!flowRef.current || !renderingRef.current) return;
 
-  if (errorBoundary && flow.status === "faulted") {
-    throw flow.error;
+    if (errorBoundary && flowRef.current.status === "faulted") {
+      throw flowRef.current.error;
+    }
+
+    if (suspense && flowRef.current.status === "running") {
+      throw new Promise((resolve) => {
+        flowRef.current?.on("update", resolve);
+      });
+    }
   }
 
-  if (suspense && flow.status === "running") {
-    throw new Promise((resolve) => {
-      flow.on("update", resolve);
-    });
-  }
+  const flowHook = {
+    get status() {
+      return flowRef.current?.status || "unknown";
+    },
+    get error() {
+      return flowRef.current?.error;
+    },
+    get running() {
+      return flowHook.status === "running";
+    },
+    get completed() {
+      return flowHook.status === "completed";
+    },
+    get faulted() {
+      return flowHook.status === "faulted";
+    },
+    get idle() {
+      return flowHook.status === "idle";
+    },
+    get data() {
+      return flowRef.current?.data;
+    },
+    get current() {
+      return flowRef.current?.current;
+    },
+    get cancelled() {
+      return flowRef.current?.cancelled || false;
+    },
+    get stale() {
+      return flowRef.current?.stale || false;
+    },
+    start(...args: Parameters<T>) {
+      flowRef.current?.start(...args);
+      handleSuspeseAndErrorBoundary();
+      return flowHook;
+    },
+    restart(...args: Parameters<T>) {
+      flowRef.current?.restart(...args);
+      handleSuspeseAndErrorBoundary();
+      return flowHook;
+    },
+    cancel() {
+      flowRef.current?.cancel();
+      return flowHook;
+    },
+  };
+  return { flowHook, handleSuspeseAndErrorBoundary };
 }
 
 export const FlowProvider: React.FC<FlowProviderProps> = ({
   controller,
-  suspense = true,
-  errorBoundary = true,
+  suspense = false,
+  errorBoundary = false,
   children,
 }) => {
   const value = React.useMemo(

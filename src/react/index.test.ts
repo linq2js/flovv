@@ -10,7 +10,7 @@ test("simple flow", async () => {
     yield delay(10);
     return 1;
   }
-  const [wrapper] = createWrapper({ suspense: false });
+  const [wrapper] = createWrapper();
   const { result } = renderHook(() => useFlow(getCount).start(), { wrapper });
   expect(result.current.running).toBeTruthy();
   await act(() => delay(15));
