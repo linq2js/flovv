@@ -73,7 +73,7 @@ export interface FlowController {
   flow<T extends AnyFunc>(flow: T): Flow<FlowTypeInfer<T>>;
   flow(key: string): Flow | undefined;
   emit(event: string, payload?: any): void;
-  remove(key: string | Flow): void;
+  remove(key: string | AnyFunc): void;
   on(
     event: "#flow" | string | string[],
     listener: (payload: any) => void

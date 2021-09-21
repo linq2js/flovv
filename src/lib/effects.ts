@@ -12,6 +12,10 @@ import {
 
 export interface Cancellable {}
 
+export function remove(key: string | AnyFunc) {
+  return createEffect((ec) => ec.controller.remove(key));
+}
+
 export function cancel(): Effect;
 export function cancel(cancellable: Cancellable): Effect;
 export function cancel(key: string): Effect;
