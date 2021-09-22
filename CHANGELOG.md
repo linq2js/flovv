@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.1.0](https://github.com/linq2js/flovv/compare/v1.0.4...v1.1.0) (2021-09-22)
+
+
+### Features
+
+* add effects ([d8e008b](https://github.com/linq2js/flovv/commit/d8e008b08ebb7f654c0706585b92bac1f4efa1fc))
+
 ### [1.0.4](https://github.com/linq2js/flovv/compare/v1.0.3...v1.0.4) (2021-09-21)
 
 
