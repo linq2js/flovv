@@ -236,14 +236,15 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       hasData = true;
       data = value;
       onSuccess?.(data as any);
+      cleanup();
     } else if (newStatus === "faulted") {
       error = value;
       onError?.(error);
       parent?.onChildError(error);
+      cleanup();
     }
     emitter.emit("update", flow);
     controller.flowUpdated(flow);
-    cleanup();
   }
 
   function iteratorDone(
@@ -434,6 +435,9 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
         // iterator
         else if (result && typeof result.next === "function") {
           iteratorNext(result, undefined);
+          if (isRunning()) {
+            statusChanged("running", undefined, false);
+          }
         } else {
           statusChanged("completed", result, false);
         }
