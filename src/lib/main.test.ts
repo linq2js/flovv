@@ -1,4 +1,4 @@
-import { stale, update } from "./effects";
+import { debounce, stale, update } from "./effects";
 import { createController, delay, on, race, start } from "./index";
 
 test("simple generator", async () => {
@@ -146,15 +146,17 @@ test("stale on flow updated", () => {
   expect(v1).not.toBe(v3);
 });
 
-
-test('initialData', () => {
-  function count1() {
-    return 1;
+test("debounce", async () => {
+  const results = [1, 2, 3, 4];
+  function* fetchData() {
+    yield debounce(10);
+    return results.shift();
   }
-  function count2() {
-    return 2;
-  }
-  function count3() {
-    return 3;
-  }
-})
+  const ctrl = createController();
+  ctrl.flow(fetchData).restart();
+  ctrl.flow(fetchData).restart();
+  ctrl.flow(fetchData).restart();
+  ctrl.flow(fetchData).restart();
+  await delay(15);
+  expect(ctrl.flow(fetchData).data).toBe(1);
+});

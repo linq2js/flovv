@@ -10,13 +10,31 @@ import {
   AnyFunc,
   FlowDataInfer,
   getKey,
+  delay,
   FLOW_UPDATE_EVENT,
 } from "./main";
 
 export interface Cancellable {}
 
-export function remove(key: string | AnyFunc) {
-  return createEffect((ec) => ec.controller.remove(key));
+export function remove(key: string | AnyFunc | (string | AnyFunc)[]) {
+  return createEffect((ec) => {
+    if (Array.isArray(key)) {
+      key.forEach((k) => ec.controller.remove(k));
+    } else {
+      ec.controller.remove(key);
+    }
+  });
+}
+
+export function debounce(ms: number) {
+  return createEffect((ec) => {
+    ec.call(function* () {
+      // cancel previous
+      yield cancel();
+      // delay in specified time
+      yield delay(ms);
+    });
+  });
 }
 
 export function cancel(): Effect;
@@ -27,13 +45,18 @@ export function cancel(target?: any): any {
   const hasTarget = !!arguments.length;
   return createEffect<InternalEffectContext>((ec) => {
     if (hasTarget) {
+      // cancel flow by key
       if (typeof target === "function" || typeof target === "string") {
         ec.controller.cancelFlow(target);
-      } else if (
+      }
+      // cancel cancellable object
+      else if (
         typeof target === "object" &&
         typeof target.cancel === "function"
       ) {
         target?.cancel();
+      } else {
+        // throw error ?
       }
     } else {
       // cancel previous

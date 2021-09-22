@@ -142,7 +142,7 @@ export function createController({
     emit: emitter.emit,
     on: emitter.on,
     cancelFlow(key) {
-      flows.get(key)?.cancel();
+      flows.get(getKey(key))?.cancel();
     },
     replaceFlow(currentFlow: InternalFlow, withFlow: InternalFlow) {
       if (flows.get(currentFlow.key) !== currentFlow) {
@@ -183,7 +183,31 @@ export function createController({
       return flow;
     },
     remove(key: any) {
-      flows.delete(key);
+      if (typeof key === "function") {
+        key = getKey(key);
+      }
+      // contains wildcard
+      if (typeof key === "string" && key.indexOf("*") !== -1) {
+        // ends with
+        if (key[0] === "*") {
+          key = key.substr(1);
+          flows.forEach((_, k) => {
+            if (typeof k === "string" && k.endsWith(key)) {
+              flows.delete(k);
+            }
+          });
+        } else {
+          // starts with
+          key = key.substr(0, key.length - 1);
+          flows.forEach((_, k) => {
+            if (typeof k === "string" && k.startsWith(key)) {
+              flows.delete(k);
+            }
+          });
+        }
+      } else {
+        flows.delete(key);
+      }
     },
     flowUpdated(flow: InternalFlow) {
       if (flows.get(flow.key) !== flow) return;
