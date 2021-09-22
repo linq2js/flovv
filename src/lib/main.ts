@@ -54,6 +54,7 @@ export interface Flow<T extends AnyFunc = AnyFunc> {
   update(value: FlowDataInfer<T>): this;
   update(reducer: (prev: FlowDataInfer<T>) => FlowDataInfer<T>): this;
   cancel(): this;
+  dispose(): this;
 }
 
 export interface InternalFlow<T extends AnyFunc = any> extends Flow<T> {
@@ -96,7 +97,11 @@ export type CancellablePromise<T = void> = (T extends Promise<infer TResult>
 
 export interface ControllerOptions {
   context?: any;
-  initialData?: { [key: string]: any };
+  initData?: { [key: string]: any };
+  initFlow?: AnyFunc;
+  onData?: (data: { [key: string]: any }) => void;
+  onCompleted?: (flow: Flow) => void;
+  onFaulted?: (flow: Flow) => void;
 }
 
 export interface FlowOptions<T extends AnyFunc = AnyFunc> {
@@ -107,8 +112,8 @@ export interface FlowOptions<T extends AnyFunc = AnyFunc> {
   fn: Function;
   onSuccess?: (data: InternalFlow<T>) => void;
   onError?: (error: Error) => void;
-  initialData?: FlowDataInfer<T>;
-  initialStatus?: FlowStatus;
+  initData?: FlowDataInfer<T>;
+  initStatus?: FlowStatus;
   hasData?: boolean;
 }
 
@@ -132,11 +137,15 @@ interface Emitter<TPayload = any, TEvent = string> {
  */
 export function createController({
   context,
-  initialData = {},
+  initData = {},
+  initFlow,
+  onData,
+  onCompleted,
+  onFaulted,
 }: ControllerOptions = {}): FlowController {
+  let data = { ...initData };
   const flows = new Map<any, InternalFlow>();
   const emitter = createEmitter({ wildcard: "*", privateEventPrefix: "#" });
-
   const controller: InternalFlowController = {
     context,
     emit: emitter.emit,
@@ -163,8 +172,8 @@ export function createController({
         let status: FlowStatus | undefined;
         let hasData = false;
 
-        if (typeof key === "string" && key in initialData) {
-          data = initialData[key];
+        if (typeof key === "string" && key in initData) {
+          data = initData[key];
           hasData = true;
           status = "completed";
         }
@@ -173,8 +182,8 @@ export function createController({
           controller,
           key,
           fn,
-          initialData: data,
-          initialStatus: status,
+          initData: data,
+          initStatus: status,
           hasData,
         });
 
@@ -191,29 +200,51 @@ export function createController({
         // ends with
         if (key[0] === "*") {
           key = key.substr(1);
-          flows.forEach((_, k) => {
+          flows.forEach((flow, k) => {
             if (typeof k === "string" && k.endsWith(key)) {
+              flow.dispose();
               flows.delete(k);
             }
           });
         } else {
           // starts with
           key = key.substr(0, key.length - 1);
-          flows.forEach((_, k) => {
+          flows.forEach((flow, k) => {
             if (typeof k === "string" && k.startsWith(key)) {
+              flow.dispose();
               flows.delete(k);
             }
           });
         }
       } else {
+        flows.get(key)?.dispose();
         flows.delete(key);
       }
     },
     flowUpdated(flow: InternalFlow) {
       if (flows.get(flow.key) !== flow) return;
+      if (flow.status === "completed") {
+        if (onData && typeof flow.key === "string") {
+          if (data[flow.key] !== flow.data) {
+            data = { ...data, [flow.key]: flow.data };
+            onData(data);
+          }
+        }
+        onCompleted?.(flow);
+      } else if (flow.status === "faulted") {
+        onFaulted?.(flow);
+      }
       emitter.emit(FLOW_UPDATE_EVENT, flow);
     },
   };
+
+  if (initFlow) {
+    createFlow({
+      controller,
+      key: {},
+      fn: initFlow,
+    }).start();
+  }
 
   return controller;
 }
@@ -226,16 +257,18 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   fn,
   onSuccess,
   onError,
-  initialData,
-  initialStatus = "idle",
+  initData,
+  initStatus = "idle",
   hasData,
 }: FlowOptions<T>) {
   let stale = false;
-  let status: FlowStatus = initialStatus;
+  let status: FlowStatus = initStatus;
   let error: Error;
   let childError: Error;
-  let data: FlowDataInfer<T> | undefined = initialData;
+  let data: FlowDataInfer<T> | undefined = initData;
   let cancelled = false;
+  let disposed = false;
+
   const iteratorStack: any[] = [];
   const emitter = createEmitter();
 
@@ -245,7 +278,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   }
 
   function isRunning() {
-    return !stale && !flow.cancelled && status === "running";
+    return !disposed && !stale && !flow.cancelled && status === "running";
   }
 
   function statusChanged(
@@ -482,7 +515,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
         fn,
         onSuccess,
         onError,
-        initialData: data,
+        initData: data,
         hasData,
       }).start(...args);
     },
@@ -493,6 +526,13 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
         }
         statusChanged("completed", value, true);
       }
+      return flow;
+    },
+    dispose() {
+      if (disposed) return flow;
+      disposed = true;
+      cancelled = true;
+      emitter.dispose();
       return flow;
     },
     onChildError(error) {
