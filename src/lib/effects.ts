@@ -2,13 +2,16 @@ import {
   createFlow,
   listenerChain,
   InternalEffectContext,
+  EffectContext,
   Effect,
   Flow,
   InternalFlow,
   createEffect,
   AnyFunc,
   FlowDataInfer,
-} from "./flovv";
+  getKey,
+  FLOW_UPDATE_EVENT,
+} from "./main";
 
 export interface Cancellable {}
 
@@ -40,51 +43,70 @@ export function cancel(target?: any): any {
   });
 }
 
-export function stale(event: "flow", key: string): Effect;
 export function stale(
+  type: "event",
   event: string | string[],
   check?: (payload: any) => boolean
 ): Effect;
-export function stale<T>(flow: AnyFunc): Effect;
-export function stale<T>(flow: AnyFunc, check: (data: T) => boolean): Effect;
-export function stale<T>(
-  flow: AnyFunc,
-  key: string,
-  check: (data: T) => boolean
+export function stale(
+  type: "flow",
+  key: string | string[],
+  check?: (flow: Flow) => boolean
 ): Effect;
-export function stale(...args: any): any {
+export function stale<T extends AnyFunc>(
+  type: "flow",
+  flow: T,
+  check?: (flow: Flow<T>) => boolean
+): Effect;
+export function stale(
+  type: "flow",
+  flow: AnyFunc[],
+  check?: (flow: Flow) => boolean
+): Effect;
+export function stale(
+  type: "event" | "flow",
+  key: any,
+  check?: (payload: any) => boolean
+): any {
   return createEffect<InternalEffectContext>((ec) => {
-    let [event, check]: [string | string[], (payload: any) => boolean] =
-      typeof args[0] === "string" || Array.isArray(args[0])
-        ? args
-        : ["update", (flow: Flow) => flow.key === args[0]];
+    const events =
+      type === "flow"
+        ? [FLOW_UPDATE_EVENT]
+        : Array.isArray(key)
+        ? (key as string[])
+        : [key as string];
+    const keys = (
+      type === "flow"
+        ? Array.isArray(key)
+          ? (key as any[])
+          : [key]
+        : undefined
+    )?.map(getKey);
 
-    if (typeof args[0] === "string") {
+    ec.flow.on("end", () => {
       listenerChain(
         (cleanup) => (payload: any) => {
-          if (
-            check &&
-            !(typeof check === "string"
-              ? payload.key === check
-              : check(payload))
-          )
+          if (ec.flow.status === "running") {
             return;
+          }
+          if (type === "flow") {
+            const flow = payload as Flow;
+            if (keys && !keys.includes(flow.key)) return;
+          }
+
+          if (check && !check(payload)) {
+            return;
+          }
           cleanup();
           ec.flow.stale = true;
         },
         (listener, add, cleanup) => {
-          add(ec.flow.on("cleanup", cleanup));
-          if (typeof event === "string") {
-            add(ec.controller.on(event, listener));
-          } else {
-            event.forEach((e) => add(ec.controller.on(e, listener)));
-          }
+          // remove on start
+          add(ec.flow.on("start", cleanup));
+          add(ec.controller.on(events, listener));
         }
       );
-      ec.next();
-      return;
-    }
-
+    });
     ec.next();
   });
 }
@@ -112,18 +134,17 @@ export function on(event: string | string[], ...args: any[]): any {
           return ec.next(payload);
         }
 
-        latest = createFlow(
-          ec.controller as any,
-          ec.flow as any,
-          latest,
-          {},
-          args[0],
-          undefined,
-          ec.fail
-        ).start(payload, ...args.slice(1));
+        latest = createFlow({
+          controller: ec.controller as any,
+          parent: ec.flow as any,
+          previous: latest,
+          key: {},
+          fn: args[0],
+          onError: ec.fail,
+        }).start(payload, ...args.slice(1));
       },
       (listener, add, cleanup) => {
-        add(ec.flow.on("cleanup", cleanup));
+        add(ec.flow.on("end", cleanup));
         add(ec.controller.on(event, listener));
       }
     );
@@ -159,15 +180,33 @@ export function call<T extends AnyFunc>(fn: T, ...args: Parameters<T>) {
   });
 }
 
+export function start(key: string, ...args: any[]): Effect;
+export function start<T extends AnyFunc>(fn: T, ...args: Parameters<T>): Effect;
+export function start(key: any, ...args: any[]) {
+  return createEffect((ec) => {
+    run(ec, "start", key, args);
+  });
+}
+
+export function restart(key: string, ...args: any[]): Effect;
+export function restart<T extends AnyFunc>(
+  fn: T,
+  ...args: Parameters<T>
+): Effect;
+export function restart(key: any, ...args: any[]) {
+  return createEffect((ec) => {
+    run(ec, "start", key, args);
+  });
+}
+
 export function fork<T extends AnyFunc>(flow: AnyFunc, ...args: Parameters<T>) {
   return createEffect((ec) => {
-    const { cancel, start } = createFlow(
-      ec.controller as any,
-      ec.flow as any,
-      undefined,
-      {},
-      flow
-    );
+    const { cancel, start } = createFlow({
+      controller: ec.controller as any,
+      parent: ec.flow as any,
+      key: {},
+      fn: flow,
+    });
     start(...args);
     return ec.next({ cancel });
   });
@@ -178,16 +217,68 @@ export function spawn<T extends AnyFunc>(
   ...args: Parameters<T>
 ): Effect {
   return createEffect((ec) => {
-    const { cancel, start } = createFlow(
-      ec.controller as any,
-      undefined,
-      undefined,
-      {},
-      flow
-    );
+    const { cancel, start } = createFlow({
+      controller: ec.controller as any,
+      key: {},
+      fn: flow,
+    });
     start(...args);
     return ec.next({ cancel });
   });
+}
+
+export function update(key: string, value: ((prev: any) => any) | any): Effect;
+export function update<T extends AnyFunc>(
+  flow: T,
+  value: ((prev: FlowDataInfer<T>) => FlowDataInfer<T>) | FlowDataInfer<T>
+): Effect;
+export function update(key: any, value: any) {
+  return createEffect((ec) => {
+    const flow = ec.controller.flow(key) as InternalFlow;
+    if (flow?.key === ec.flow.key) {
+      throw new Error("Cannot update running flow");
+    }
+    flow?.update(value);
+    ec.next();
+  });
+}
+
+function run(
+  ec: EffectContext,
+  method: "start" | "restart",
+  key: any,
+  args: any[]
+) {
+  let flow: Flow;
+  if (typeof args[0] === "function" && typeof key !== "function") {
+    flow = ec.controller.flow(key as string, args[0]);
+    // remove first args
+    args = args.slice(1);
+  } else {
+    flow = ec.controller.flow(key);
+  }
+  // the effect is never done
+  if (!flow) return;
+  flow[method](...args);
+
+  const onUpdate = () => {
+    const current = flow.current;
+    if (current.status === "running") return;
+    if (current.status === "faulted") {
+      return ec.fail(current.error);
+    }
+    ec.next(current.data);
+  };
+
+  if (flow.status !== "running" && flow.status !== "idle") {
+    return onUpdate();
+  }
+  const cleanup = ec.controller.on(FLOW_UPDATE_EVENT, (x: Flow) => {
+    if (x.key !== flow.key) return;
+    cleanup();
+    onUpdate();
+  });
+  ec.flow.on("end", cleanup);
 }
 
 function handleParallel(type: "all" | "race", targets: any) {
@@ -229,37 +320,20 @@ function handleParallel(type: "all" | "race", targets: any) {
       const fn = function* () {
         yield target;
       };
-      const flow = createFlow(
-        ec.controller,
-        ec.flow,
-        undefined,
-        {},
+      const flow = createFlow({
+        controller: ec.controller,
+        parent: ec.flow,
+        key: {},
         fn,
-        (data) => {
+        onSuccess: (data) => {
           onDone(key, true, data);
         },
-        (error) => {
+        onError: (error) => {
           onDone(key, false, error);
-        }
-      );
+        },
+      });
       flows.set(key, flow);
       flow.start();
     });
-  });
-}
-
-export function update(key: string, value: ((prev: any) => any) | any): Effect;
-export function update<T extends AnyFunc>(
-  flow: T,
-  value: ((prev: FlowDataInfer<T>) => FlowDataInfer<T>) | FlowDataInfer<T>
-): Effect;
-export function update(key: any, value: any) {
-  return createEffect((ec) => {
-    const flow = ec.controller.flow(key) as InternalFlow;
-    if (flow?.key === ec.flow.key) {
-      throw new Error("Cannot update running flow");
-    }
-    flow?.update(value);
-    ec.next();
   });
 }

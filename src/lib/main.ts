@@ -3,6 +3,8 @@ export type FlowStatus = "idle" | "running" | "completed" | "faulted";
 export type VoidFn = () => void;
 export type AnyFunc = (...args: any[]) => any;
 
+export const FLOW_UPDATE_EVENT = "#flow";
+
 export interface EffectContext {
   flow: Flow;
   context: any;
@@ -32,7 +34,7 @@ export type FlowDataInfer<T> = T extends (...args: any[]) => infer TResult
     : TResult
   : never;
 
-export interface Flow<T extends AnyFunc = () => any> {
+export interface Flow<T extends AnyFunc = AnyFunc> {
   readonly key: any;
   readonly data: FlowDataInfer<T> | undefined;
   readonly stale: boolean;
@@ -42,8 +44,9 @@ export interface Flow<T extends AnyFunc = () => any> {
   readonly parent: Flow | undefined;
   readonly cancelled: boolean;
   readonly current: this;
+  readonly hasData: boolean;
   on(
-    event: "cleanup" | "update" | "cancel",
+    event: "end" | "update" | "cancel" | "start",
     listener: (flow: Flow<T>) => void
   ): VoidFn;
   restart(...args: Parameters<T>): this;
@@ -75,7 +78,7 @@ export interface FlowController {
   emit(event: string, payload?: any): void;
   remove(key: string | AnyFunc): void;
   on(
-    event: "#flow" | string | string[],
+    event: typeof FLOW_UPDATE_EVENT | string | string[],
     listener: (payload: any) => void
   ): VoidFn;
 }
@@ -91,8 +94,22 @@ export type CancellablePromise<T = void> = (T extends Promise<infer TResult>
   ? Promise<TResult>
   : Promise<T>) & { cancel(): void };
 
-export interface FlowControllerOptions {
+export interface ControllerOptions {
   context?: any;
+  initialData?: { [key: string]: any };
+}
+
+export interface FlowOptions<T extends AnyFunc = AnyFunc> {
+  controller: InternalFlowController;
+  parent?: InternalFlow;
+  previous?: InternalFlow<T>;
+  key: any;
+  fn: Function;
+  onSuccess?: (data: InternalFlow<T>) => void;
+  onError?: (error: Error) => void;
+  initialData?: FlowDataInfer<T>;
+  initialStatus?: FlowStatus;
+  hasData?: boolean;
 }
 
 interface EmitterOptions<T> {
@@ -113,7 +130,10 @@ interface Emitter<TPayload = any, TEvent = string> {
 /**
  * create flow controller
  */
-export function createController({ context }: FlowControllerOptions = {}) {
+export function createController({
+  context,
+  initialData = {},
+}: ControllerOptions = {}): FlowController {
   const flows = new Map<any, InternalFlow>();
   const emitter = createEmitter({ wildcard: "*", privateEventPrefix: "#" });
 
@@ -132,14 +152,32 @@ export function createController({ context }: FlowControllerOptions = {}) {
     },
     flow(...args: any[]): any {
       const [key, fn] =
-        typeof args[1] === "function" ? args : [args[0], args[0]];
+        typeof args[1] === "function" ? args : [getKey(args[0]), args[0]];
       // flow(key)
       if (typeof key === "string" && args.length === 1) {
         return flows.get(key);
       }
       let flow = flows.get(key);
       if (!flow) {
-        flow = createFlow(controller, undefined, undefined, key, fn);
+        let data: any = undefined;
+        let status: FlowStatus | undefined;
+        let hasData = false;
+
+        if (typeof key === "string" && key in initialData) {
+          data = initialData[key];
+          hasData = true;
+          status = "completed";
+        }
+
+        flow = createFlow({
+          controller,
+          key,
+          fn,
+          initialData: data,
+          initialStatus: status,
+          hasData,
+        });
+
         flows.set(key, flow);
       }
       return flow;
@@ -149,33 +187,36 @@ export function createController({ context }: FlowControllerOptions = {}) {
     },
     flowUpdated(flow: InternalFlow) {
       if (flows.get(flow.key) !== flow) return;
-      emitter.emit("#flow", flow);
+      emitter.emit(FLOW_UPDATE_EVENT, flow);
     },
   };
 
   return controller;
 }
 
-export function createFlow<T extends AnyFunc>(
-  controller: InternalFlowController,
-  parent: InternalFlow | undefined,
-  previous: InternalFlow<T> | undefined,
-  key: any,
-  fn: Function,
-  onSuccess?: (data: T) => void,
-  onError?: (error: Error) => void
-) {
+export function createFlow<T extends AnyFunc = AnyFunc>({
+  controller,
+  parent,
+  previous,
+  key,
+  fn,
+  onSuccess,
+  onError,
+  initialData,
+  initialStatus = "idle",
+  hasData,
+}: FlowOptions<T>) {
   let stale = false;
-  let status: FlowStatus = "idle";
+  let status: FlowStatus = initialStatus;
   let error: Error;
   let childError: Error;
-  let data: T;
+  let data: FlowDataInfer<T> | undefined = initialData;
   let cancelled = false;
   const iteratorStack: any[] = [];
   const emitter = createEmitter();
 
   function cleanup() {
-    emitter.emit("cleanup");
+    emitter.emit("end");
     emitter.dispose();
   }
 
@@ -192,8 +233,9 @@ export function createFlow<T extends AnyFunc>(
     stale = false;
     status = newStatus;
     if (newStatus === "completed") {
+      hasData = true;
       data = value;
-      onSuccess?.(data);
+      onSuccess?.(data as any);
     } else if (newStatus === "faulted") {
       error = value;
       onError?.(error);
@@ -316,6 +358,9 @@ export function createFlow<T extends AnyFunc>(
     fn,
     controller,
     statusChanged,
+    get hasData() {
+      return hasData || false;
+    },
     get current(): any {
       return controller.flow(key) || flow;
     },
@@ -328,7 +373,7 @@ export function createFlow<T extends AnyFunc>(
     get data() {
       return data;
     },
-    set data(value: T) {
+    set data(value) {
       flow.update(value);
     },
     get status() {
@@ -370,6 +415,7 @@ export function createFlow<T extends AnyFunc>(
         controller.replaceFlow(flow.previous, flow);
       }
 
+      emitter.emit("start", flow);
       try {
         status = "running";
         const result = fn(...args);
@@ -400,7 +446,17 @@ export function createFlow<T extends AnyFunc>(
       if (status === "idle" || stale) {
         return flow.start(...args);
       }
-      return createFlow(controller, parent, flow, key, fn).start(...args);
+      return createFlow({
+        controller,
+        parent,
+        previous: flow,
+        key,
+        fn,
+        onSuccess,
+        onError,
+        initialData: data,
+        hasData,
+      }).start(...args);
     },
     update(value: any) {
       if (status !== "running") {
@@ -417,6 +473,10 @@ export function createFlow<T extends AnyFunc>(
   };
 
   return flow;
+}
+
+export function getKey(fn: Function) {
+  return (fn as any)?.flowKey || fn;
 }
 
 export function createEffect<T extends EffectContext = EffectContext>(

@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "exclude": ["node_modules/*", "**/*.test.*", "**/testUtils.*"],
   "compilerOptions": {
-    "outDir": "./es",
+    "outDir": "./dist/es",
     "module": "ES6",
     "moduleResolution": "Node",
     "target": "ES2017",

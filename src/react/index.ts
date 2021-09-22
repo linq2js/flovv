@@ -6,6 +6,8 @@ import {
   FlowDataInfer,
   FlowStatus,
   Flow,
+  FLOW_UPDATE_EVENT,
+  getKey,
 } from "../lib";
 
 export interface FlowProviderProps {
@@ -25,6 +27,7 @@ export interface FlowHook<T extends AnyFunc> {
   readonly error: Error | undefined;
   readonly cancelled: boolean;
   readonly stale: boolean;
+  readonly hasData: boolean;
   start(...args: Parameters<T>): this;
   restart(...args: Parameters<T>): this;
   cancel(): this;
@@ -42,7 +45,7 @@ export function useFlow<T extends AnyFunc>(flow: T): FlowHook<T>;
 export function useFlow<T extends AnyFunc>(key: string, flow: T): FlowHook<T>;
 export function useFlow<T extends AnyFunc>(...args: any[]): FlowHook<T> {
   const { controller, errorBoundary, suspense } = React.useContext(flowContext);
-  const [key, fn] = args.length > 1 ? args : [args[0], args[1]];
+  const [key, fn] = args.length > 1 ? args : [getKey(args[0]), args[1]];
   const rerender = React.useState<any>()[1];
   const renderingRef = React.useRef(false);
   const flowRef = React.useRef<Flow<T>>();
@@ -55,7 +58,7 @@ export function useFlow<T extends AnyFunc>(...args: any[]): FlowHook<T> {
 
   React.useLayoutEffect(() => {
     renderingRef.current = false;
-    return controller.on("#flow", (flow) => {
+    return controller.on(FLOW_UPDATE_EVENT, (flow) => {
       if (flow.key === key) {
         rerender({});
       }
@@ -88,6 +91,9 @@ function createFlowHook<T extends AnyFunc>(
   }
 
   const flowHook = {
+    get hasData() {
+      return flowRef.current?.hasData || false;
+    },
     get status() {
       return flowRef.current?.status || "unknown";
     },

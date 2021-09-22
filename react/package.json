@@ -1,5 +1,5 @@
 {
-  "main": "../dist/react/index.js",
-  "types": "../dist/react/index.d.ts",
-  "module": "../es/react/index.js"
+  "main": "../dist/js/react/index.js",
+  "types": "../dist/js/react/index.d.ts",
+  "module": "../dist/es/react/index.js"
 }

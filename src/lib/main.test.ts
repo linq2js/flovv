@@ -1,5 +1,5 @@
-import { update } from "./effects";
-import { createController, delay, on, race } from "./index";
+import { stale, update } from "./effects";
+import { createController, delay, on, race, start } from "./index";
 
 test("simple generator", async () => {
   const results = [1];
@@ -110,3 +110,51 @@ test("update by key", () => {
   ctrl.flow(updateFlow).start();
   expect(ctrl.flow("count")?.data).toBe(2);
 });
+
+test("stale on specified event", () => {
+  function* fetchData() {
+    yield stale("event", "doSomething");
+    return Math.random();
+  }
+  const ctrl = createController();
+  const v1 = ctrl.flow(fetchData).start().data;
+  const v2 = ctrl.flow(fetchData).start().data;
+  expect(v1).toBe(v2);
+  ctrl.emit("doSomething");
+  const v3 = ctrl.flow(fetchData).start().data;
+  expect(v1).not.toBe(v3);
+});
+
+test("stale on flow updated", () => {
+  function* fetchData() {
+    yield stale("event", "doSomething");
+    return Math.random();
+  }
+  function* dependentFlow() {
+    yield stale("flow", fetchData);
+    const data: number = yield start(fetchData);
+    return data * 2;
+  }
+  const ctrl = createController();
+  const v1 = ctrl.flow(dependentFlow).start().data;
+  const v2 = ctrl.flow(dependentFlow).start().data;
+  expect(v1).toBe(v2);
+  ctrl.emit("doSomething");
+  expect(ctrl.flow(fetchData).stale).toBeTruthy();
+  expect(ctrl.flow(dependentFlow).stale).toBeTruthy();
+  const v3 = ctrl.flow(dependentFlow).start().data;
+  expect(v1).not.toBe(v3);
+});
+
+
+test('initialData', () => {
+  function count1() {
+    return 1;
+  }
+  function count2() {
+    return 2;
+  }
+  function count3() {
+    return 3;
+  }
+})
