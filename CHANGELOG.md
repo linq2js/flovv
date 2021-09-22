@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/linq2js/flovv/compare/v1.1.3...v1.2.0) (2021-09-22)
+
+
+### Features
+
+* add controller event listeners ([1bf5578](https://github.com/linq2js/flovv/commit/1bf5578b7b32d4b09507e10b66c82322918b0ac6))
+
 ### [1.1.3](https://github.com/linq2js/flovv/compare/v1.1.2...v1.1.3) (2021-09-22)
 
 ### [1.1.2](https://github.com/linq2js/flovv/compare/v1.1.1...v1.1.2) (2021-09-22)
