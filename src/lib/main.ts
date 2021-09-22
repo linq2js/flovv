@@ -436,7 +436,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
         else if (result && typeof result.next === "function") {
           iteratorNext(result, undefined);
           if (isRunning()) {
-            statusChanged("running", undefined, false);
+            controller.flowUpdated(flow);
           }
         } else {
           statusChanged("completed", result, false);
