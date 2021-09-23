@@ -113,7 +113,7 @@ test("update by key", () => {
 
 test("stale on specified event", () => {
   function* fetchData() {
-    yield stale("event", "doSomething");
+    yield stale("when", "doSomething");
     return Math.random();
   }
   const ctrl = createController();
@@ -127,7 +127,7 @@ test("stale on specified event", () => {
 
 test("stale on flow updated", () => {
   function* fetchData() {
-    yield stale("event", "doSomething");
+    yield stale("when", "doSomething");
     return Math.random();
   }
   function* dependentFlow() {

@@ -218,16 +218,16 @@ function createFlowHook<T extends AnyFunc>(
       return flowRef.current?.error;
     },
     get running() {
-      return flowHook.status === "running";
+      return flowRef.current?.running || false;
     },
     get completed() {
-      return flowHook.status === "completed";
+      return flowRef.current?.completed || false;
     },
     get faulted() {
-      return flowHook.status === "faulted";
+      return flowRef.current?.faulted || false;
     },
     get idle() {
-      return flowHook.status === "idle";
+      return flowRef.current?.idle || false;
     },
     get data() {
       return flowRef.current?.data;

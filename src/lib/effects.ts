@@ -66,8 +66,10 @@ export function cancel(target?: any): any {
   });
 }
 
+export function stale(type: "when", done: Promise<any>): Effect;
+export function stale(type: "when", timeout: number): Effect;
 export function stale(
-  type: "event",
+  type: "when",
   event: string | string[],
   check?: (payload: any) => boolean
 ): Effect;
@@ -87,49 +89,76 @@ export function stale(
   check?: (flow: Flow) => boolean
 ): Effect;
 export function stale(
-  type: "event" | "flow",
+  type: "when" | "flow",
   key: any,
   check?: (payload: any) => boolean
 ): any {
   return createEffect<InternalEffectContext>((ec) => {
-    const events =
-      type === "flow"
-        ? [FLOW_UPDATE_EVENT]
-        : Array.isArray(key)
-        ? (key as string[])
-        : [key as string];
-    const keys = (
-      type === "flow"
-        ? Array.isArray(key)
-          ? (key as any[])
-          : [key]
-        : undefined
-    )?.map(getKey);
+    // stale('when', timeout)
+    if (type === "when" && !isNaN(key)) {
+      const timeout = setTimeout(() => {
+        ec.flow.stale = true;
+      });
+      ec.flow.on("end", () => {
+        clearTimeout(timeout);
+      });
+    }
+    // stale('when', promise)
+    else if (type === "when" && key && typeof key.then === "function") {
+      let ended = false;
+      const onDone = () => {
+        if (ended) return;
+        ec.flow.stale = true;
+      };
+      if (typeof key.finally === "function") {
+        key.finally(onDone);
+      } else {
+        key.then(onDone, onDone);
+      }
+      ec.flow.on("end", () => {
+        ended = true;
+      });
+    } else {
+      const events =
+        type === "flow"
+          ? [FLOW_UPDATE_EVENT]
+          : Array.isArray(key)
+          ? (key as string[])
+          : [key as string];
+      const keys = (
+        type === "flow"
+          ? Array.isArray(key)
+            ? (key as any[])
+            : [key]
+          : undefined
+      )?.map(getKey);
 
-    ec.flow.on("end", () => {
-      listenerChain(
-        (cleanup) => (payload: any) => {
-          if (ec.flow.status === "running") {
-            return;
-          }
-          if (type === "flow") {
-            const flow = payload as Flow;
-            if (keys && !keys.includes(flow.key)) return;
-          }
+      ec.flow.on("end", () => {
+        listenerChain(
+          (cleanup) => (payload: any) => {
+            if (ec.flow.status === "running") {
+              return;
+            }
+            if (type === "flow") {
+              const flow = payload as Flow;
+              if (keys && !keys.includes(flow.key)) return;
+            }
 
-          if (check && !check(payload)) {
-            return;
+            if (check && !check(payload)) {
+              return;
+            }
+            cleanup();
+            ec.flow.stale = true;
+          },
+          (listener, add, cleanup) => {
+            // remove on start
+            add(ec.flow.on("start", cleanup));
+            add(ec.controller.on(events, listener));
           }
-          cleanup();
-          ec.flow.stale = true;
-        },
-        (listener, add, cleanup) => {
-          // remove on start
-          add(ec.flow.on("start", cleanup));
-          add(ec.controller.on(events, listener));
-        }
-      );
-    });
+        );
+      });
+    }
+
     ec.next();
   });
 }

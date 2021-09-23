@@ -39,6 +39,10 @@ export interface Flow<T extends AnyFunc = AnyFunc> {
   readonly data: FlowDataInfer<T> | undefined;
   readonly stale: boolean;
   readonly status: FlowStatus;
+  readonly idle: boolean;
+  readonly running: boolean;
+  readonly completed: boolean;
+  readonly faulted: boolean;
   readonly error: Error | undefined;
   readonly previous: Flow<T> | undefined;
   readonly parent: Flow | undefined;
@@ -488,6 +492,18 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     fn,
     controller,
     statusChanged,
+    get completed() {
+      return status === "completed";
+    },
+    get faulted() {
+      return status === "faulted";
+    },
+    get running() {
+      return status === "running";
+    },
+    get idle() {
+      return status === "idle";
+    },
     get hasData() {
       return hasData || false;
     },
