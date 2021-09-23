@@ -45,7 +45,17 @@ interface FlowContext {
   errorBoundary: boolean;
 }
 
-const flowContext = React.createContext<FlowContext>(null as any);
+const defaultFlowContext = {
+  get controller(): never {
+    throw new Error("No flow provider found");
+  },
+};
+
+const flowContext = React.createContext<FlowContext>(defaultFlowContext as any);
+
+export function useController(): FlowController {
+  return React.useContext(flowContext).controller;
+}
 
 export function useFlow<T extends AnyFunc>(
   key: string,
@@ -56,6 +66,7 @@ export function useFlow<T extends AnyFunc>(
   flow: T,
   options?: UseFlowOptions<T>
 ): FlowHook<T>;
+
 export function useFlow<T extends AnyFunc>(...args: any[]): any {
   const { controller, errorBoundary, suspense } = React.useContext(flowContext);
   const [key, fn, options = {}] =
@@ -170,12 +181,14 @@ function createFlowHook<T extends AnyFunc>(
   return { flowHook, handleSuspeseAndErrorBoundary };
 }
 
-export const FlowProvider: React.FC<FlowProviderProps> = ({
-  controller,
-  suspense = false,
-  errorBoundary = false,
-  children,
-}) => {
+export const FlowProvider: React.FC<FlowProviderProps> = (props) => {
+  const parentProvider = React.useContext(flowContext);
+  const {
+    controller = parentProvider?.controller,
+    suspense = parentProvider?.suspense || false,
+    errorBoundary = parentProvider?.errorBoundary || false,
+    children,
+  } = props;
   const value = React.useMemo(
     () => ({ controller, suspense, errorBoundary }),
     [controller, suspense, errorBoundary]

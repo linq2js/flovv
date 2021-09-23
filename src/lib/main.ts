@@ -547,6 +547,23 @@ export function getKey(fn: Function) {
   return (fn as any)?.flowKey || fn;
 }
 
+export interface FlowConfigs<T extends AnyFunc> {
+  key?: string;
+}
+
+export function configure<T extends AnyFunc>(fn: T, key: string): T;
+export function configure<T extends AnyFunc>(fn: T, configs: FlowConfigs<T>): T;
+export function configure<T extends AnyFunc>(fn: T, configs: any): T {
+  const { key }: FlowConfigs<T> =
+    (typeof configs === "string" ? { key: configs } : configs) || {};
+
+  if (typeof key !== "undefined") {
+    (fn as any).flowKey = key;
+  }
+
+  return fn;
+}
+
 export function createEffect<T extends EffectContext = EffectContext>(
   fn: (context: T) => void
 ): Effect {
