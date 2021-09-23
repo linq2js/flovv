@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.6.1](https://github.com/linq2js/flovv/compare/v1.6.0...v1.6.1) (2021-09-23)
+
+
+### Bug Fixes
+
+* stale logic ([c2ea379](https://github.com/linq2js/flovv/commit/c2ea379afc1aa18395efa74690222fae09e5ccfb))
+
 ## [1.6.0](https://github.com/linq2js/flovv/compare/v1.5.6...v1.6.0) (2021-09-23)
 
 
