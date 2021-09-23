@@ -220,7 +220,7 @@ export function createController({
         flows.set(key, flow);
 
         if (hasData) {
-          controller.flowUpdated(flow);
+          emitter.emit(FLOW_UPDATE_EVENT, flow);
         }
       }
       return flow;
@@ -312,6 +312,7 @@ export function createController({
         onError: (e) => {
           ready = true;
           error = e;
+          reject(error);
         },
       }).start();
     });
