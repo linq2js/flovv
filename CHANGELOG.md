@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.6.0](https://github.com/linq2js/flovv/compare/v1.5.6...v1.6.0) (2021-09-23)
+
+
+### Features
+
+* Redux supported ([681e54a](https://github.com/linq2js/flovv/commit/681e54a737cb43eec40b49419ce162316a616d4c))
+
 ### [1.5.6](https://github.com/linq2js/flovv/compare/v1.5.5...v1.5.6) (2021-09-23)
 
 ### [1.5.5](https://github.com/linq2js/flovv/compare/v1.5.4...v1.5.5) (2021-09-23)
