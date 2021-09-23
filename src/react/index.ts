@@ -51,6 +51,18 @@ export interface UseFlowOptions<T extends AnyFunc>
 
 export interface UseFlowOptionsWithoutArgs {}
 
+export interface PrefetchMapFn extends Function {
+  <T extends AnyFunc, TResult>(
+    key: any,
+    flow: T,
+    mapper: (flow: Flow) => TResult,
+    defaultValue?: TResult
+  ): TResult | undefined;
+  <TResult>(key: any, mapper: (flow: Flow) => TResult, defaultValue?: TResult):
+    | TResult
+    | undefined;
+}
+
 interface FlowContext {
   controller: FlowController;
   suspense: boolean;
@@ -69,10 +81,7 @@ export function useController(): FlowController {
   return React.useContext(flowContext).controller;
 }
 
-export function usePrefetcher(): [
-  FlowPrefetcher,
-  <T>(key: any, mapper: (flow: Flow) => T, defaultValue?: T) => T | undefined
-] {
+export function usePrefetcher(): [FlowPrefetcher, PrefetchMapFn] {
   const controller = useController();
   const keys = React.useRef<Set<any>>(new Set()).current;
   const rerender = React.useState<any>()[1];
@@ -91,8 +100,13 @@ export function usePrefetcher(): [
       const flow = (controller as any).start(...args);
       return flow;
     },
-    <T>(key: any, mapper: (flow: Flow) => T, defaultValue?: T) => {
-      const flow = controller.flow(Array.isArray(key) ? makeKey(key) : key);
+    (key: any, ...args: any[]): any => {
+      const [fn, mapper, defaultValue] =
+        typeof args[0] === "function" && typeof args[1] === "function"
+          ? args
+          : [undefined, ...args];
+      const k = Array.isArray(key) ? makeKey(key) : key;
+      const flow = fn ? controller.flow(k, fn) : controller.flow(k);
       return flow ? mapper(flow) : defaultValue;
     },
   ];
