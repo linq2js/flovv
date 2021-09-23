@@ -73,12 +73,20 @@ export type FlowTypeInfer<T> = T extends (...args: any[]) => Generator<Effect>
   ? never
   : T;
 
+export interface FlowPrefetcher {
+  <T extends AnyFunc>(flow: T, ...args: Parameters<T>): Flow<T>;
+  <T extends AnyFunc>(key: [string, ...Parameters<T>], flow: T): Flow<T>;
+  <T extends AnyFunc>(key: string, flow: T, ...args: Parameters<T>): Flow<T>;
+}
+
 export interface FlowController {
   readonly ready: boolean;
   readonly promise: Promise<void>;
   readonly error?: Error;
-  flow<T extends AnyFunc>(key: string, flow: T): Flow<FlowTypeInfer<T>>;
-  flow<T extends AnyFunc>(flow: T): Flow<FlowTypeInfer<T>>;
+  start: FlowPrefetcher;
+  restart: FlowPrefetcher;
+  flow<T extends AnyFunc>(key: string, flow: T): Flow<T>;
+  flow<T extends AnyFunc>(flow: T): Flow<T>;
   flow(key: string): Flow | undefined;
   emit(event: string, payload?: any): void;
   remove(key: string | AnyFunc): void;
@@ -166,6 +174,12 @@ export function createController({
     },
     emit: emitter.emit,
     on: emitter.on,
+    start(...args: any[]) {
+      return run("start", args);
+    },
+    restart(...args: any[]) {
+      return run("restart", args);
+    },
     cancelFlow(key) {
       flows.get(getKey(key))?.cancel();
     },
@@ -253,6 +267,29 @@ export function createController({
       emitter.emit(FLOW_UPDATE_EVENT, flow);
     },
   };
+
+  function run(type: "start" | "restart", inputs: any[]) {
+    const args: any[] = [];
+    let key: any;
+    let fn: any;
+    // preload(flow, ...args)
+    if (typeof inputs[0] === "function") {
+      key = getKey(inputs[0]);
+      fn = inputs[0];
+      args.push(...inputs.slice(1));
+    } else {
+      // preload(key, flow, ...args)
+      fn = inputs[1];
+      if (Array.isArray(inputs[0])) {
+        key = makeKey(inputs[0]);
+        args.push(...inputs[0].slice(1));
+      } else {
+        key = inputs[0];
+        args.push(...inputs.slice(2));
+      }
+    }
+    return controller.flow(key, fn)[type](...args);
+  }
 
   if (initFlow) {
     ready = false;
@@ -577,6 +614,10 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   };
 
   return flow;
+}
+
+export function makeKey(args: any[]) {
+  return args.join(":");
 }
 
 export function getKey(fn: Function) {

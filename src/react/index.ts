@@ -9,6 +9,8 @@ import {
   FLOW_UPDATE_EVENT,
   getKey,
   InternalFlow,
+  makeKey,
+  FlowPrefetcher,
 } from "../lib";
 
 export interface FlowProviderProps {
@@ -17,7 +19,7 @@ export interface FlowProviderProps {
   errorBoundary?: boolean;
 }
 
-export interface FlowHook<T extends AnyFunc> {
+export interface FlowHookWithoutArgs<T extends AnyFunc> {
   readonly current: Flow<T> | undefined;
   readonly data: FlowDataInfer<T> | undefined;
   readonly status: FlowStatus | "unknown";
@@ -34,14 +36,20 @@ export interface FlowHook<T extends AnyFunc> {
   partial(data: FlowDataInfer<T>): this;
   start(): this;
   restart(): this;
-  start(...args: Parameters<T>): this;
-  restart(...args: Parameters<T>): this;
   cancel(): this;
 }
 
-export interface UseFlowOptions<T extends AnyFunc> {
+export interface FlowHook<T extends AnyFunc> extends FlowHookWithoutArgs<T> {
+  start(...args: Parameters<T>): this;
+  restart(...args: Parameters<T>): this;
+}
+
+export interface UseFlowOptions<T extends AnyFunc>
+  extends UseFlowOptionsWithoutArgs {
   args?: Parameters<T>;
 }
+
+export interface UseFlowOptionsWithoutArgs {}
 
 interface FlowContext {
   controller: FlowController;
@@ -61,11 +69,27 @@ export function useController(): FlowController {
   return React.useContext(flowContext).controller;
 }
 
+export function usePrefetcher(): FlowPrefetcher {
+  const controller = useController();
+  const keys = React.useRef<Set<any>>(new Set()).current;
+  const rerender = React.useState<any>()[1];
+  React.useEffect(() => {
+    controller.on(FLOW_UPDATE_EVENT, () => {
+      rerender({});
+    });
+  }, [keys, rerender, controller]);
+  return (...args: any[]) => {
+    const flow = (controller as any).start(...args);
+    keys.add(flow.key);
+    return flow;
+  };
+}
+
 export function useFlow<T extends AnyFunc>(
   key: [string, ...Parameters<T>],
   flow: T,
-  options?: UseFlowOptions<T>
-): FlowHook<T>;
+  options?: UseFlowOptionsWithoutArgs
+): FlowHookWithoutArgs<T>;
 export function useFlow<T extends AnyFunc>(
   key: string,
   flow: T,
@@ -80,7 +104,7 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
   if (Array.isArray(args[0])) {
     // overwrite args option
     args[2] = { ...args[2], args: args[0].slice(1), fixedArgs: true };
-    args[0] = args[0].join(":");
+    args[0] = makeKey(args[0]);
   }
 
   const { controller, errorBoundary, suspense } = React.useContext(flowContext);
@@ -102,7 +126,8 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
 
   renderingRef.current = true;
   optionsRef.current = options;
-  flowRef.current = controller.flow(key, fn) as any;
+  // make sure removed flow does not cause an error
+  flowRef.current = (controller.flow(key, fn) as any) || flowRef.current;
 
   React.useLayoutEffect(() => {
     renderingRef.current = false;

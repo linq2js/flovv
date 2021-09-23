@@ -1,0 +1,5 @@
+{
+  "main": "../dist/js/redux/index.js",
+  "types": "../dist/js/redux/index.d.ts",
+  "module": "../dist/es/redux/index.js"
+}
