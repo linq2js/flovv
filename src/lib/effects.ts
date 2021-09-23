@@ -96,27 +96,31 @@ export function stale(
   return createEffect<InternalEffectContext>((ec) => {
     // stale('when', timeout)
     if (type === "when" && !isNaN(key)) {
-      const timeout = setTimeout(() => {
-        ec.flow.stale = true;
-      });
       ec.flow.on("end", () => {
-        clearTimeout(timeout);
+        const timeout = setTimeout(() => {
+          ec.flow.stale = true;
+        }, key);
+        ec.flow.on("start", () => {
+          clearTimeout(timeout);
+        });
       });
     }
     // stale('when', promise)
     else if (type === "when" && key && typeof key.then === "function") {
-      let ended = false;
-      const onDone = () => {
-        if (ended) return;
-        ec.flow.stale = true;
-      };
-      if (typeof key.finally === "function") {
-        key.finally(onDone);
-      } else {
-        key.then(onDone, onDone);
-      }
       ec.flow.on("end", () => {
-        ended = true;
+        let ended = false;
+        const onDone = () => {
+          if (ended) return;
+          ec.flow.stale = true;
+        };
+        if (typeof key.finally === "function") {
+          key.finally(onDone);
+        } else {
+          key.then(onDone, onDone);
+        }
+        ec.flow.on("start", () => {
+          ended = true;
+        });
       });
     } else {
       const events =
