@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.5.0](https://github.com/linq2js/flovv/compare/v1.4.1...v1.5.0) (2021-09-23)
+
+
+### Features
+
+* usePrefetcher ([5300f28](https://github.com/linq2js/flovv/commit/5300f28102081029cca58e13a4f4bdc1d4235322))
+
 ### [1.4.1](https://github.com/linq2js/flovv/compare/v1.4.0...v1.4.1) (2021-09-23)
 
 ## [1.4.0](https://github.com/linq2js/flovv/compare/v1.3.0...v1.4.0) (2021-09-23)
