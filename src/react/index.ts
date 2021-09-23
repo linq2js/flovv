@@ -86,8 +86,9 @@ export function usePrefetcher(): [
 
   return [
     (...args: any[]) => {
+      const key = Array.isArray(args[0]) ? makeKey(args[0]) : args[0];
+      keys.add(key);
       const flow = (controller as any).start(...args);
-      keys.add(flow.key);
       return flow;
     },
     <T>(key: any, mapper: (flow: Flow) => T, defaultValue?: T) => {
