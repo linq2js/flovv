@@ -134,6 +134,13 @@ export function stale(
   });
 }
 
+export function partial(data: any) {
+  return createEffect((ec: InternalEffectContext) => {
+    ec.flow.partial(data);
+    ec.next();
+  });
+}
+
 export function on<T extends AnyFunc>(event: string | string[]): Effect;
 /**
  * handle the event that triggers by the flow controller and start the specified flow with new context

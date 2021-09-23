@@ -40,7 +40,7 @@ test("default args", () => {
   }
   const [wrapper] = createWrapper();
   const { result } = renderHook(
-    () => useFlow(sum, { args: [1, 2, 3] }).start().data,
+    () => useFlow(["sum", 1, 2, 3], sum).start().data,
     { wrapper }
   );
 

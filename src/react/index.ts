@@ -8,6 +8,7 @@ import {
   Flow,
   FLOW_UPDATE_EVENT,
   getKey,
+  InternalFlow,
 } from "../lib";
 
 export interface FlowProviderProps {
@@ -28,6 +29,9 @@ export interface FlowHook<T extends AnyFunc> {
   readonly cancelled: boolean;
   readonly stale: boolean;
   readonly hasData: boolean;
+  update(data: FlowDataInfer<T>): this;
+  update(reducer: (prev: FlowDataInfer<T>) => FlowDataInfer<T>): this;
+  partial(data: FlowDataInfer<T>): this;
   start(): this;
   restart(): this;
   start(...args: Parameters<T>): this;
@@ -58,6 +62,11 @@ export function useController(): FlowController {
 }
 
 export function useFlow<T extends AnyFunc>(
+  key: [string, ...Parameters<T>],
+  flow: T,
+  options?: UseFlowOptions<T>
+): FlowHook<T>;
+export function useFlow<T extends AnyFunc>(
   key: string,
   flow: T,
   options?: UseFlowOptions<T>
@@ -66,15 +75,21 @@ export function useFlow<T extends AnyFunc>(
   flow: T,
   options?: UseFlowOptions<T>
 ): FlowHook<T>;
-
 export function useFlow<T extends AnyFunc>(...args: any[]): any {
+  // key array  useFlow([key, arg1, arg2, arg3, arg4])
+  if (Array.isArray(args[0])) {
+    // overwrite args option
+    args[2] = { ...args[2], args: args[0].slice(1), fixedArgs: true };
+    args[0] = args[0].join(":");
+  }
+
   const { controller, errorBoundary, suspense } = React.useContext(flowContext);
   const [key, fn, options = {}] =
     typeof args[1] === "function" ? args : [getKey(args[0]), args[0], args[1]];
   const rerender = React.useState<any>()[1];
   const optionsRef = React.useRef<any>();
   const renderingRef = React.useRef(false);
-  const flowRef = React.useRef<Flow<T>>();
+  const flowRef = React.useRef<InternalFlow<T>>();
   const { flowHook, handleSuspeseAndErrorBoundary } = React.useMemo(() => {
     return createFlowHook(
       flowRef,
@@ -87,7 +102,7 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
 
   renderingRef.current = true;
   optionsRef.current = options;
-  flowRef.current = controller.flow(key, fn);
+  flowRef.current = controller.flow(key, fn) as any;
 
   React.useLayoutEffect(() => {
     renderingRef.current = false;
@@ -104,7 +119,7 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
 }
 
 function createFlowHook<T extends AnyFunc>(
-  flowRef: React.MutableRefObject<Flow<T> | undefined>,
+  flowRef: React.MutableRefObject<InternalFlow<T> | undefined>,
   renderingRef: React.MutableRefObject<boolean>,
   optionsRef: React.MutableRefObject<any>,
   suspense: boolean,
@@ -129,7 +144,18 @@ function createFlowHook<T extends AnyFunc>(
     return args.concat(optionsRef.current.args.slice(args.length)) as any;
   }
 
-  const flowHook = {
+  function run(type: "start" | "restart", args: Parameters<T>) {
+    if (args.length && optionsRef.current?.fixedArgs) {
+      throw new Error(
+        "Passing arguments to fixed args flow is not allowed. Use the overload useFlow(key, flow, { args: [] }) instead"
+      );
+    }
+    flowRef.current?.[type](...getArgs(args));
+    handleSuspeseAndErrorBoundary();
+    return flowHook;
+  }
+
+  const flowHook: FlowHook<T> = {
     get hasData() {
       return flowRef.current?.hasData || false;
     },
@@ -163,15 +189,19 @@ function createFlowHook<T extends AnyFunc>(
     get stale() {
       return flowRef.current?.stale || false;
     },
-    start(...args: Parameters<T>) {
-      flowRef.current?.start(...getArgs(args));
-      handleSuspeseAndErrorBoundary();
+    update(data: any) {
+      flowRef.current?.update(data);
       return flowHook;
     },
-    restart(...args: Parameters<T>) {
-      flowRef.current?.restart(...getArgs(args));
-      handleSuspeseAndErrorBoundary();
+    partial(data: FlowDataInfer<T>) {
+      flowRef.current?.partial(data);
       return flowHook;
+    },
+    start(...args: Parameters<T>) {
+      return run("start", args);
+    },
+    restart(...args: Parameters<T>) {
+      return run("restart", args);
     },
     cancel() {
       flowRef.current?.cancel();

@@ -60,8 +60,9 @@ export interface Flow<T extends AnyFunc = AnyFunc> {
 export interface InternalFlow<T extends AnyFunc = any> extends Flow<T> {
   readonly fn: Function;
   readonly parent: InternalFlow | undefined;
-  stale: boolean;
   readonly controller: InternalFlowController;
+  stale: boolean;
+  partial(data: any): void;
   statusChanged(status: FlowStatus, value: any, forceUpdate: boolean): void;
   onChildError(error: Error): void;
 }
@@ -489,6 +490,12 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       emitter.emit("cancel", flow);
       cleanup();
       return flow;
+    },
+    partial(partialData) {
+      if (!isRunning()) return;
+      data = partialData;
+      hasData = true;
+      controller.flowUpdated(flow);
     },
     start(...args: any[]) {
       // running or finished
