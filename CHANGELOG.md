@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.4.0](https://github.com/linq2js/flovv/compare/v1.3.0...v1.4.0) (2021-09-23)
+
+
+### Features
+
+* provider can handle controller error ([091480b](https://github.com/linq2js/flovv/commit/091480be75050615e6a1a7dbdd7316519305e51d))
+
 ## [1.3.0](https://github.com/linq2js/flovv/compare/v1.2.1...v1.3.0) (2021-09-23)
 
 
