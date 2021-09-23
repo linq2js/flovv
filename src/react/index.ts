@@ -69,7 +69,10 @@ export function useController(): FlowController {
   return React.useContext(flowContext).controller;
 }
 
-export function usePrefetcher(): FlowPrefetcher {
+export function usePrefetcher(): [
+  FlowPrefetcher,
+  <T>(key: any, mapper: (flow: Flow) => T, defaultValue?: T) => T | undefined
+] {
   const controller = useController();
   const keys = React.useRef<Set<any>>(new Set()).current;
   const rerender = React.useState<any>()[1];
@@ -78,11 +81,17 @@ export function usePrefetcher(): FlowPrefetcher {
       rerender({});
     });
   }, [keys, rerender, controller]);
-  return (...args: any[]) => {
-    const flow = (controller as any).start(...args);
-    keys.add(flow.key);
-    return flow;
-  };
+  return [
+    (...args: any[]) => {
+      const flow = (controller as any).start(...args);
+      keys.add(flow.key);
+      return flow;
+    },
+    <T>(key: any, mapper: (flow: Flow) => T, defaultValue?: T) => {
+      const flow = controller.flow(Array.isArray(key) ? makeKey(key) : key);
+      return flow ? mapper(flow) : defaultValue;
+    },
+  ];
 }
 
 export function useFlow<T extends AnyFunc>(
