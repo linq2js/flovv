@@ -97,7 +97,7 @@ export type CancellablePromise<T = void> = (T extends Promise<infer TResult>
 
 export interface ControllerOptions {
   context?: any;
-  initData?: { [key: string]: any };
+  initData?: Record<string, any>;
   initFlow?: AnyFunc;
   onData?: (data: { [key: string]: any }) => void;
   onCompleted?: (flow: Flow) => void;

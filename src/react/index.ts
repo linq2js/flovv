@@ -28,9 +28,15 @@ export interface FlowHook<T extends AnyFunc> {
   readonly cancelled: boolean;
   readonly stale: boolean;
   readonly hasData: boolean;
+  start(): this;
+  restart(): this;
   start(...args: Parameters<T>): this;
   restart(...args: Parameters<T>): this;
   cancel(): this;
+}
+
+export interface UseFlowOptions<T extends AnyFunc> {
+  args?: Parameters<T>;
 }
 
 interface FlowContext {
@@ -41,19 +47,35 @@ interface FlowContext {
 
 const flowContext = React.createContext<FlowContext>(null as any);
 
-export function useFlow<T extends AnyFunc>(flow: T): FlowHook<T>;
-export function useFlow<T extends AnyFunc>(key: string, flow: T): FlowHook<T>;
-export function useFlow<T extends AnyFunc>(...args: any[]): FlowHook<T> {
+export function useFlow<T extends AnyFunc>(
+  key: string,
+  flow: T,
+  options?: UseFlowOptions<T>
+): FlowHook<T>;
+export function useFlow<T extends AnyFunc>(
+  flow: T,
+  options?: UseFlowOptions<T>
+): FlowHook<T>;
+export function useFlow<T extends AnyFunc>(...args: any[]): any {
   const { controller, errorBoundary, suspense } = React.useContext(flowContext);
-  const [key, fn] = args.length > 1 ? args : [getKey(args[0]), args[1]];
+  const [key, fn, options = {}] =
+    typeof args[1] === "function" ? args : [getKey(args[0]), args[0], args[1]];
   const rerender = React.useState<any>()[1];
+  const optionsRef = React.useRef<any>();
   const renderingRef = React.useRef(false);
   const flowRef = React.useRef<Flow<T>>();
   const { flowHook, handleSuspeseAndErrorBoundary } = React.useMemo(() => {
-    return createFlowHook(flowRef, renderingRef, suspense, errorBoundary);
+    return createFlowHook(
+      flowRef,
+      renderingRef,
+      optionsRef,
+      suspense,
+      errorBoundary
+    );
   }, [suspense, errorBoundary]);
 
   renderingRef.current = true;
+  optionsRef.current = options;
   flowRef.current = controller.flow(key, fn);
 
   React.useLayoutEffect(() => {
@@ -73,6 +95,7 @@ export function useFlow<T extends AnyFunc>(...args: any[]): FlowHook<T> {
 function createFlowHook<T extends AnyFunc>(
   flowRef: React.MutableRefObject<Flow<T> | undefined>,
   renderingRef: React.MutableRefObject<boolean>,
+  optionsRef: React.MutableRefObject<any>,
   suspense: boolean,
   errorBoundary: boolean
 ) {
@@ -88,6 +111,11 @@ function createFlowHook<T extends AnyFunc>(
         flowRef.current?.on("update", resolve);
       });
     }
+  }
+
+  function getArgs(args: Parameters<T>): Parameters<T> {
+    if (!optionsRef.current.args) return args;
+    return args.concat(optionsRef.current.args.slice(args.length)) as any;
   }
 
   const flowHook = {
@@ -125,12 +153,12 @@ function createFlowHook<T extends AnyFunc>(
       return flowRef.current?.stale || false;
     },
     start(...args: Parameters<T>) {
-      flowRef.current?.start(...args);
+      flowRef.current?.start(...getArgs(args));
       handleSuspeseAndErrorBoundary();
       return flowHook;
     },
     restart(...args: Parameters<T>) {
-      flowRef.current?.restart(...args);
+      flowRef.current?.restart(...getArgs(args));
       handleSuspeseAndErrorBoundary();
       return flowHook;
     },

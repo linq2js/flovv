@@ -33,3 +33,16 @@ function createWrapper(
     controller,
   ];
 }
+
+test("default args", () => {
+  function sum(a: number, b: number, c: number) {
+    return a + b + c;
+  }
+  const [wrapper] = createWrapper();
+  const { result } = renderHook(
+    () => useFlow(sum, { args: [1, 2, 3] }).start().data,
+    { wrapper }
+  );
+
+  expect(result.current).toBe(6);
+});
