@@ -1,12 +1,14 @@
 import { AnyAction, Store } from "redux";
 
-import { createEffect, EffectContext } from "../lib";
+import { createEffect, EffectContext, Effect } from "../lib";
 
 export function select<TState = any, TResult = any>(
   selector: (state: TState) => TResult
-) {
-  return createStoreEffect<TState>((store, ec) => {
-    ec.next(selector(store.getState()));
+): Effect;
+export function select(): Effect;
+export function select(selector?: Function): Effect {
+  return createStoreEffect((store, ec) => {
+    ec.next(selector ? selector(store.getState()) : store.getState());
   });
 }
 

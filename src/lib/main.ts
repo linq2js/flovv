@@ -193,13 +193,17 @@ export function createController({
       }
       flows.set(currentFlow.key, withFlow);
     },
-    flow(...args: any[]): any {
-      const [key, fn] =
-        typeof args[1] === "function" ? args : [getKey(args[0]), args[0]];
+    flow(key: any, fn?: any): any {
+      const keyType = typeof key;
+      if (keyType === "function") {
+        fn = key;
+      }
+      key = getKey(key);
       // flow(key)
-      if (typeof key === "string" && args.length === 1) {
+      if (keyType !== "function" && arguments.length === 1) {
         return flows.get(key);
       }
+
       let flow = flows.get(key);
       if (!flow) {
         let data: any = undefined;
@@ -230,9 +234,7 @@ export function createController({
       return flow;
     },
     remove(key: any) {
-      if (typeof key === "function") {
-        key = getKey(key);
-      }
+      key = getKey(key);
       // contains wildcard
       if (typeof key === "string" && key.indexOf("*") !== -1) {
         // ends with
@@ -278,21 +280,18 @@ export function createController({
 
   function run(type: "start" | "restart", inputs: any[]) {
     const args: any[] = [];
-    let key: any;
+    const key = getKey(inputs[0]);
     let fn: any;
     // preload(flow, ...args)
     if (typeof inputs[0] === "function") {
-      key = getKey(inputs[0]);
       fn = inputs[0];
       args.push(...inputs.slice(1));
     } else {
       // preload(key, flow, ...args)
       fn = inputs[1];
       if (Array.isArray(inputs[0])) {
-        key = makeKey(inputs[0]);
         args.push(...inputs[0].slice(1));
       } else {
-        key = inputs[0];
         args.push(...inputs.slice(2));
       }
     }
@@ -641,8 +640,14 @@ export function makeKey(args: any[]) {
   return args.join(":");
 }
 
-export function getKey(fn: Function) {
-  return (fn as any)?.flowKey || fn;
+export function getKey(value: any) {
+  if (typeof value === "function") {
+    return value.flowKey || value;
+  }
+  if (Array.isArray(value)) {
+    return makeKey(value);
+  }
+  return value;
 }
 
 export interface FlowConfigs<T extends AnyFunc> {
