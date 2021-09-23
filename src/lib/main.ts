@@ -73,6 +73,9 @@ export type FlowTypeInfer<T> = T extends (...args: any[]) => Generator<Effect>
   : T;
 
 export interface FlowController {
+  readonly ready: boolean;
+  readonly promise: Promise<void>;
+  readonly error?: Error;
   flow<T extends AnyFunc>(key: string, flow: T): Flow<FlowTypeInfer<T>>;
   flow<T extends AnyFunc>(flow: T): Flow<FlowTypeInfer<T>>;
   flow(key: string): Flow | undefined;
@@ -144,10 +147,22 @@ export function createController({
   onFaulted,
 }: ControllerOptions = {}): FlowController {
   let data = { ...initData };
+  let promise = Promise.resolve();
+  let ready = true;
+  let error: Error;
   const flows = new Map<any, InternalFlow>();
   const emitter = createEmitter({ wildcard: "*", privateEventPrefix: "#" });
   const controller: InternalFlowController = {
     context,
+    get ready() {
+      return ready;
+    },
+    get error() {
+      return error;
+    },
+    get promise() {
+      return promise;
+    },
     emit: emitter.emit,
     on: emitter.on,
     cancelFlow(key) {
@@ -239,11 +254,25 @@ export function createController({
   };
 
   if (initFlow) {
-    createFlow({
-      controller,
-      key: {},
-      fn: initFlow,
-    }).start();
+    ready = false;
+    promise = new Promise((resolve, reject) => {
+      createFlow({
+        controller,
+        key: {},
+        fn: initFlow,
+        onSuccess: (data) => {
+          if (isPlainObject(data)) {
+            Object.assign(initData, data);
+          }
+          ready = true;
+          resolve();
+        },
+        onError: (e) => {
+          ready = true;
+          error = e;
+        },
+      }).start();
+    });
   }
 
   return controller;
@@ -689,4 +718,8 @@ export function listenerChain<T>(
   );
 
   return cleanup;
+}
+
+function isPlainObject(value: any) {
+  return typeof value == "object" && value.constructor == Object;
 }

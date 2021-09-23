@@ -194,6 +194,15 @@ export const FlowProvider: React.FC<FlowProviderProps> = (props) => {
     [controller, suspense, errorBoundary]
   );
 
+  if (controller.error) {
+    throw controller.error;
+  }
+
+  if (!controller.ready) {
+    if (suspense) throw controller.promise;
+    return null;
+  }
+
   return React.createElement(flowContext.Provider, {
     value,
     children,
