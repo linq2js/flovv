@@ -218,6 +218,10 @@ export function createController({
         });
 
         flows.set(key, flow);
+
+        if (hasData) {
+          controller.flowUpdated(flow);
+        }
       }
       return flow;
     },

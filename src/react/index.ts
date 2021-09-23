@@ -76,11 +76,14 @@ export function usePrefetcher(): [
   const controller = useController();
   const keys = React.useRef<Set<any>>(new Set()).current;
   const rerender = React.useState<any>()[1];
+
   React.useEffect(() => {
-    controller.on(FLOW_UPDATE_EVENT, () => {
+    return controller.on(FLOW_UPDATE_EVENT, (flow: Flow) => {
+      if (!keys.has(flow.key)) return;
       rerender({});
     });
   }, [keys, rerender, controller]);
+
   return [
     (...args: any[]) => {
       const flow = (controller as any).start(...args);
