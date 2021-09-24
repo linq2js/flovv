@@ -205,11 +205,11 @@ test("partial with wait", async () => {
   expect(flow.hasData).toBeFalsy();
   expect(flow.data).toBeUndefined();
   await delay(15);
-  expect(flow.running).toBeTruthy();
+  expect(flow.completed).toBeTruthy();
   expect(flow.hasData).toBeTruthy();
   expect(flow.data).toBe(1);
   await delay(15);
-  expect(flow.running).toBeTruthy();
+  expect(flow.completed).toBeTruthy();
   expect(flow.hasData).toBeTruthy();
   expect(flow.data).toBe(1);
   flow.next(2);

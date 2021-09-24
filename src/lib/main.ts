@@ -60,7 +60,6 @@ export interface Flow<T extends AnyFunc = AnyFunc> {
   update(reducer: (prev: FlowDataInfer<T>) => FlowDataInfer<T>): this;
   cancel(): this;
   dispose(): this;
-  partial(data: any): this;
   next(payload?: any): this;
 }
 
@@ -70,7 +69,7 @@ export interface InternalFlow<T extends AnyFunc = any> extends Flow<T> {
   readonly controller: InternalFlowController;
   readonly called: number;
   stale: boolean;
-
+  partial(data: any, wait: boolean): this;
   statusChanged(status: FlowStatus, value: any, forceUpdate: boolean): void;
   onChildError(error: Error): void;
   setNext(next: Function): void;
@@ -577,10 +576,13 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       cleanup();
       return flow;
     },
-    partial(partialData) {
+    partial(partialData, wait) {
       if (!isRunning()) return flow;
       data = partialData;
       hasData = true;
+      if (wait) {
+        status = "completed";
+      }
       controller.flowUpdated(flow);
       return flow;
     },
@@ -670,9 +672,15 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       currentNext = value;
     },
     next(payload: any) {
-      const next = currentNext;
-      currentNext = undefined;
-      next?.call(null, payload);
+      if (!cancelled && !stale && currentNext) {
+        const next = currentNext;
+        currentNext = undefined;
+        status = "running";
+        next?.call(null, payload);
+        if (status === "running") {
+          controller.flowUpdated(flow);
+        }
+      }
       return flow;
     },
   };

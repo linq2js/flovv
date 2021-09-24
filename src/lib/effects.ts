@@ -172,7 +172,7 @@ export function stale(
 
 export function partial(data: any, wait?: boolean) {
   return createEffect((ec: InternalEffectContext) => {
-    ec.flow.partial(data);
+    ec.flow.partial(data, wait || false);
     if (wait) {
       ec.flow.setNext(ec.next);
     } else {
