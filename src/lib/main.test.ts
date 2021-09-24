@@ -1,4 +1,4 @@
-import { debounce, stale, update } from "./effects";
+import { debounce, partial, stale, update } from "./effects";
 import { createController, delay, on, race, start } from "./index";
 
 test("simple generator", async () => {
@@ -159,4 +159,61 @@ test("debounce", async () => {
   ctrl.flow(fetchData).restart();
   await delay(15);
   expect(ctrl.flow(fetchData).data).toBe(1);
+});
+
+test("partial without wait", async () => {
+  function* fetchData() {
+    yield delay(10);
+    yield partial(1);
+    yield delay(10);
+    yield partial(2);
+    yield delay(10);
+    return 3;
+  }
+
+  const ctrl = createController();
+  const flow = ctrl.flow(fetchData);
+  flow.start();
+  expect(flow.running).toBeTruthy();
+  expect(flow.hasData).toBeFalsy();
+  expect(flow.data).toBeUndefined();
+  await delay(15);
+  expect(flow.running).toBeTruthy();
+  expect(flow.hasData).toBeTruthy();
+  expect(flow.data).toBe(1);
+  await delay(15);
+  expect(flow.running).toBeTruthy();
+  expect(flow.hasData).toBeTruthy();
+  expect(flow.data).toBe(2);
+  await delay(15);
+  expect(flow.completed).toBeTruthy();
+  expect(flow.hasData).toBeTruthy();
+  expect(flow.data).toBe(3);
+});
+
+test("partial with wait", async () => {
+  function* fetchData() {
+    yield delay(10);
+    const result: number = yield partial(1, true);
+    return result;
+  }
+
+  const ctrl = createController();
+  const flow = ctrl.flow(fetchData);
+  flow.start();
+  expect(flow.running).toBeTruthy();
+  expect(flow.hasData).toBeFalsy();
+  expect(flow.data).toBeUndefined();
+  await delay(15);
+  expect(flow.running).toBeTruthy();
+  expect(flow.hasData).toBeTruthy();
+  expect(flow.data).toBe(1);
+  await delay(15);
+  expect(flow.running).toBeTruthy();
+  expect(flow.hasData).toBeTruthy();
+  expect(flow.data).toBe(1);
+  flow.next(2);
+  expect(flow.completed).toBeTruthy();
+  expect(flow.hasData).toBeTruthy();
+  expect(flow.data).toBe(2);
 });

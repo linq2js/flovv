@@ -59,6 +59,8 @@ export interface Flow<T extends AnyFunc = AnyFunc> {
   update(reducer: (prev: FlowDataInfer<T>) => FlowDataInfer<T>): this;
   cancel(): this;
   dispose(): this;
+  partial(data: any): this;
+  next(payload?: any): this;
 }
 
 export interface InternalFlow<T extends AnyFunc = any> extends Flow<T> {
@@ -67,9 +69,10 @@ export interface InternalFlow<T extends AnyFunc = any> extends Flow<T> {
   readonly controller: InternalFlowController;
   readonly called: number;
   stale: boolean;
-  partial(data: any): void;
+
   statusChanged(status: FlowStatus, value: any, forceUpdate: boolean): void;
   onChildError(error: Error): void;
+  setNext(next: Function): void;
 }
 
 export type FlowTypeInfer<T> = T extends (...args: any[]) => Generator<Effect>
@@ -345,6 +348,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   let cancelled = false;
   let disposed = false;
   let called = 0;
+  let currentNext: Function | undefined;
 
   const iteratorStack: any[] = [];
   const emitter = createEmitter();
@@ -435,13 +439,27 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
 
       if (typeof value === "function") {
         try {
-          return value({
+          const c = called;
+          const ec: EffectContext = {
             flow,
             controller,
             context: controller.context,
-            next: (value: any) => iteratorNext(iterator, value),
-            fail: (error: any) => iteratorThrow(iterator, error),
+            next: (value: any) => {
+              if (c !== called) {
+                return;
+              }
+              iteratorNext(iterator, value);
+            },
+            fail: (error: any) => {
+              if (c !== called) {
+                return;
+              }
+              iteratorThrow(iterator, error);
+            },
             call: (next: any, ...args: any[]) => {
+              if (c !== called) {
+                return;
+              }
               if (typeof next === "function") {
                 try {
                   return iteratorYield(iterator, next(...args));
@@ -452,10 +470,15 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
               return interatorCall(iterator, next);
             },
             end: (result: any) => {
+              if (c !== called) {
+                return;
+              }
               iteratorStack.length = 0;
               iteratorDone(iterator, true, result);
             },
-          } as EffectContext);
+          };
+
+          return value(ec);
         } catch (e) {
           return iteratorThrow(iterator, e as any);
         }
@@ -544,10 +567,11 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       return flow;
     },
     partial(partialData) {
-      if (!isRunning()) return;
+      if (!isRunning()) return flow;
       data = partialData;
       hasData = true;
       controller.flowUpdated(flow);
+      return flow;
     },
     start(...args: any[]) {
       // running or finished
@@ -555,6 +579,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
         return flow;
       }
 
+      cancelled = false;
       stale = false;
       called++;
 
@@ -626,6 +651,15 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     },
     onChildError(error) {
       childError = error;
+    },
+    setNext(value: Function) {
+      currentNext = value;
+    },
+    next(payload: any) {
+      const next = currentNext;
+      currentNext = undefined;
+      next?.call(null, payload);
+      return flow;
     },
   };
 

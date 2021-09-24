@@ -170,10 +170,14 @@ export function stale(
   });
 }
 
-export function partial(data: any) {
+export function partial(data: any, wait?: boolean) {
   return createEffect((ec: InternalEffectContext) => {
     ec.flow.partial(data);
-    ec.next();
+    if (wait) {
+      ec.flow.setNext(ec.next);
+    } else {
+      ec.next();
+    }
   });
 }
 
