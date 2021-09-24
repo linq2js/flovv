@@ -217,3 +217,23 @@ test("partial with wait", async () => {
   expect(flow.hasData).toBeTruthy();
   expect(flow.data).toBe(2);
 });
+
+test("cancel promise", async () => {
+  const callback = jest.fn();
+  function api() {
+    return Object.assign(delay(10), { cancel: callback });
+  }
+
+  function* fetchData() {
+    yield api();
+    return 1;
+  }
+
+  const ctrl = createController();
+  const flow = ctrl.flow(fetchData);
+  flow.start();
+  flow.cancel();
+  expect(callback).toBeCalled();
+  await delay(15);
+  expect(flow.data).toBeUndefined();
+});

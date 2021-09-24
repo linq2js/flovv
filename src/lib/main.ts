@@ -352,6 +352,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   let disposed = false;
   let called = 0;
   let currentNext: Function | undefined;
+  let cancelFn: Function | undefined;
 
   const iteratorStack: any[] = [];
   const emitter = createEmitter();
@@ -374,6 +375,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     if (!forceUpdate && !isRunning()) return;
     stale = false;
     status = newStatus;
+    cancelFn = undefined;
     if (newStatus === "completed") {
       hasData = true;
       data = value;
@@ -423,6 +425,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
 
   function iteratorYield(iterator: Iterator<any, T>, value: any): any {
     if (!isRunning()) return;
+    cancelFn = undefined;
     if (value) {
       // yield iterator
       if (typeof value.next === "function") {
@@ -430,6 +433,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       }
       // yield promise
       if (value && typeof value.then === "function") {
+        cancelFn = value.cancel;
         return value.then(
           (resolved: any) => {
             iteratorNext(iterator, resolved);
@@ -568,6 +572,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     cancel() {
       if (cancelled) return flow;
       cancelled = true;
+      cancelFn?.();
       emitter.emit("cancel", flow);
       cleanup();
       return flow;
@@ -585,6 +590,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
         return flow;
       }
 
+      cancelFn = undefined;
       cancelled = false;
       stale = false;
       called++;
@@ -599,6 +605,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
         const result = fn(...args);
         // promise
         if (result && typeof result.then === "function") {
+          cancelFn = result.cancel;
           statusChanged("running", undefined, false);
           result.then(
             (resolved: any) => {
