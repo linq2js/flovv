@@ -348,6 +348,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   const emitter = createEmitter();
 
   function cleanup() {
+    previous = undefined;
     emitter.emit("end");
     emitter.dispose();
   }
@@ -429,17 +430,6 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
           }
         );
       }
-
-      const call = (next: any, ...args: any[]) => {
-        if (typeof next === "function") {
-          try {
-            return iteratorYield(iterator, next(...args));
-          } catch (e) {
-            return iteratorThrow(iterator, e as any);
-          }
-        }
-        return interatorCall(iterator, next);
-      };
 
       if (typeof value === "function") {
         try {
