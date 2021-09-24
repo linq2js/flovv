@@ -93,23 +93,26 @@ export function usePrefetcher(): [FlowPrefetcher, PrefetchMapFn] {
     });
   }, [keys, rerender, controller]);
 
-  return [
-    (...args: any[]) => {
-      const key = Array.isArray(args[0]) ? makeKey(args[0]) : args[0];
-      keys.add(key);
-      const flow = (controller as any).start(...args);
-      return flow;
-    },
-    (key: any, ...args: any[]): any => {
-      const [fn, mapper, defaultValue] =
-        typeof args[0] === "function" && typeof args[1] === "function"
-          ? args
-          : [undefined, ...args];
-      const k = Array.isArray(key) ? makeKey(key) : key;
-      const flow = fn ? controller.flow(k, fn) : controller.flow(k);
-      return flow ? mapper(flow) : defaultValue;
-    },
-  ];
+  return React.useMemo(
+    () => [
+      (...args: any[]) => {
+        const key = Array.isArray(args[0]) ? makeKey(args[0]) : args[0];
+        keys.add(key);
+        const flow = (controller as any).start(...args);
+        return flow;
+      },
+      (key: any, ...args: any[]): any => {
+        const [fn, mapper, defaultValue] =
+          typeof args[0] === "function" && typeof args[1] === "function"
+            ? args
+            : [undefined, ...args];
+        const k = Array.isArray(key) ? makeKey(key) : key;
+        const flow = fn ? controller.flow(k, fn) : controller.flow(k);
+        return flow ? mapper(flow) : defaultValue;
+      },
+    ],
+    [controller, keys]
+  );
 }
 
 export function useFlow<T extends AnyFunc>(
@@ -133,7 +136,6 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
     args[2] = { ...args[2], args: args[0].slice(1), fixedArgs: true };
     args[0] = makeKey(args[0]);
   }
-
   const { controller, errorBoundary, suspense } = React.useContext(flowContext);
   const [key, fn, options = {}] =
     typeof args[1] === "function" ? args : [getKey(args[0]), args[0], args[1]];
@@ -158,12 +160,16 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
 
   React.useLayoutEffect(() => {
     renderingRef.current = false;
+  });
+
+  React.useEffect(() => {
     return controller.on(FLOW_UPDATE_EVENT, (flow) => {
+      if (renderingRef.current) return;
       if (flow.key === key) {
         rerender({});
       }
     });
-  });
+  }, [controller]);
 
   handleSuspeseAndErrorBoundary();
 
