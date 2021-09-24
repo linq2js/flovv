@@ -33,7 +33,8 @@ export interface FlowHookWithoutArgs<T extends AnyFunc> {
   readonly hasData: boolean;
   update(data: FlowDataInfer<T>): this;
   update(reducer: (prev: FlowDataInfer<T>) => FlowDataInfer<T>): this;
-  partial(data: FlowDataInfer<T>): this;
+  next(payload?: any): this;
+
   start(): this;
   restart(): this;
   cancel(): this;
@@ -247,15 +248,15 @@ function createFlowHook<T extends AnyFunc>(
       flowRef.current?.update(data);
       return flowHook;
     },
-    partial(data: FlowDataInfer<T>) {
-      flowRef.current?.partial(data);
-      return flowHook;
-    },
     start(...args: Parameters<T>) {
       return run("start", args);
     },
     restart(...args: Parameters<T>) {
       return run("restart", args);
+    },
+    next(payload?: any) {
+      flowRef.current?.next(payload);
+      return flowHook;
     },
     cancel() {
       flowRef.current?.cancel();
