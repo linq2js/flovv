@@ -65,6 +65,7 @@ export interface InternalFlow<T extends AnyFunc = any> extends Flow<T> {
   readonly fn: Function;
   readonly parent: InternalFlow | undefined;
   readonly controller: InternalFlowController;
+  readonly called: number;
   stale: boolean;
   partial(data: any): void;
   statusChanged(status: FlowStatus, value: any, forceUpdate: boolean): void;
@@ -343,6 +344,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   let data: FlowDataInfer<T> | undefined = initData;
   let cancelled = false;
   let disposed = false;
+  let called = 0;
 
   const iteratorStack: any[] = [];
   const emitter = createEmitter();
@@ -481,6 +483,9 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     fn,
     controller,
     statusChanged,
+    get called() {
+      return called;
+    },
     get completed() {
       return status === "completed";
     },
@@ -551,6 +556,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       }
 
       stale = false;
+      called++;
 
       if (flow.previous) {
         controller.replaceFlow(flow.previous, flow);

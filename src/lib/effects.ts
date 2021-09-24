@@ -97,20 +97,19 @@ export function stale(
     // stale('when', timeout)
     if (type === "when" && !isNaN(key)) {
       ec.flow.on("end", () => {
-        const timeout = setTimeout(() => {
+        let called = ec.flow.called;
+        setTimeout(() => {
+          if (called !== ec.flow.called) return;
           ec.flow.stale = true;
         }, key);
-        ec.flow.on("start", () => {
-          clearTimeout(timeout);
-        });
       });
     }
     // stale('when', promise)
     else if (type === "when" && key && typeof key.then === "function") {
       ec.flow.on("end", () => {
-        let ended = false;
+        const called = ec.flow.called;
         const onDone = () => {
-          if (ended) return;
+          if (called !== ec.flow.called) return;
           ec.flow.stale = true;
         };
         if (typeof key.finally === "function") {
@@ -118,9 +117,6 @@ export function stale(
         } else {
           key.then(onDone, onDone);
         }
-        ec.flow.on("start", () => {
-          ended = true;
-        });
       });
     } else {
       const events =
@@ -138,11 +134,18 @@ export function stale(
       )?.map(getKey);
 
       ec.flow.on("end", () => {
+        let called: number;
         listenerChain(
           (cleanup) => (payload: any) => {
             if (ec.flow.status === "running") {
               return;
             }
+
+            if (ec.flow.called !== called) {
+              cleanup();
+              return;
+            }
+
             if (type === "flow") {
               const flow = payload as Flow;
               if (keys && !keys.includes(flow.key)) return;
@@ -151,12 +154,12 @@ export function stale(
             if (check && !check(payload)) {
               return;
             }
+
             cleanup();
             ec.flow.stale = true;
           },
-          (listener, add, cleanup) => {
-            // remove on start
-            add(ec.flow.on("start", cleanup));
+          (listener, add) => {
+            called = ec.flow.called;
             add(ec.controller.on(events, listener));
           }
         );
