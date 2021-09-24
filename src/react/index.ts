@@ -160,16 +160,12 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
 
   React.useLayoutEffect(() => {
     renderingRef.current = false;
-  });
-
-  React.useEffect(() => {
     return controller.on(FLOW_UPDATE_EVENT, (flow) => {
-      if (renderingRef.current) return;
       if (flow.key === key) {
         rerender({});
       }
     });
-  }, [controller]);
+  });
 
   handleSuspeseAndErrorBoundary();
 
