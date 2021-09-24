@@ -49,6 +49,7 @@ export interface Flow<T extends AnyFunc = AnyFunc> {
   readonly cancelled: boolean;
   readonly current: this;
   readonly hasData: boolean;
+  readonly extra: Record<string, any>;
   on(
     event: "end" | "update" | "cancel" | "start",
     listener: (flow: Flow<T>) => void
@@ -135,6 +136,7 @@ export interface FlowOptions<T extends AnyFunc = AnyFunc> {
   initData?: FlowDataInfer<T>;
   initStatus?: FlowStatus;
   hasData?: boolean;
+  extra?: Record<string, any>;
 }
 
 interface EmitterOptions<T> {
@@ -339,6 +341,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   initData,
   initStatus = "idle",
   hasData,
+  extra = {},
 }: FlowOptions<T>) {
   let stale = false;
   let status: FlowStatus = initStatus;
@@ -506,6 +509,9 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     fn,
     controller,
     statusChanged,
+    get extra() {
+      return extra;
+    },
     get called() {
       return called;
     },
@@ -631,6 +637,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
         onError,
         initData: data,
         hasData,
+        extra,
       }).start(...args);
     },
     update(value: any) {

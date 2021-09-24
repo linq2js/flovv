@@ -297,6 +297,12 @@ export function spawn<T extends AnyFunc>(
   });
 }
 
+export function data() {
+  return createEffect((ec) => {
+    ec.next(ec.flow.previous?.data);
+  });
+}
+
 export function update(key: string, value: ((prev: any) => any) | any): Effect;
 export function update<T extends AnyFunc>(
   flow: T,
