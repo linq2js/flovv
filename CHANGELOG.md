@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.7.0](https://github.com/linq2js/flovv/compare/v1.6.4...v1.7.0) (2021-09-24)
+
+
+### Features
+
+* flow extra data ([a7ab972](https://github.com/linq2js/flovv/commit/a7ab972593e717cfdf9880d58cb0059c523319ab))
+* flow extra data ([fb9581c](https://github.com/linq2js/flovv/commit/fb9581c3826a1d60ecd981adc1d2b1aaae0b4a8e))
+* next() and partial() ([f407849](https://github.com/linq2js/flovv/commit/f4078491d772b19387c9d2ea673234845e5d47e3))
+
 ### [1.6.4](https://github.com/linq2js/flovv/compare/v1.6.3...v1.6.4) (2021-09-24)
 
 ### [1.6.3](https://github.com/linq2js/flovv/compare/v1.6.2...v1.6.3) (2021-09-24)
