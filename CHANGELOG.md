@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.2](https://github.com/linq2js/flovv/compare/v1.7.1...v1.7.2) (2021-09-24)
+
+
+### Bug Fixes
+
+* react hooks ([195d61e](https://github.com/linq2js/flovv/commit/195d61e56ed987be5fb6d7bda1b2c004dc7b7e80))
+
 ### [1.7.1](https://github.com/linq2js/flovv/compare/v1.7.0...v1.7.1) (2021-09-24)
 
 ## [1.7.0](https://github.com/linq2js/flovv/compare/v1.6.4...v1.7.0) (2021-09-24)
