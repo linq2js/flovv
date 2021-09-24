@@ -297,7 +297,18 @@ export function spawn<T extends AnyFunc>(
   });
 }
 
-export function data() {
+export function extra(value?: Record<string, any>): Effect {
+  const hasValue = arguments.length;
+  return createEffect((ec) => {
+    if (hasValue) {
+      Object.assign(ec.flow.extra, value);
+    } else {
+      ec.next(ec.flow.extra);
+    }
+  });
+}
+
+export function data(): Effect {
   return createEffect((ec) => {
     ec.next(ec.flow.previous?.data);
   });
