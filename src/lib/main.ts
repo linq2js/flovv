@@ -4,6 +4,7 @@ export type VoidFn = () => void;
 export type AnyFunc = (...args: any[]) => any;
 
 export const FLOW_UPDATE_EVENT = "#flow";
+export const GLOBAL_STATUS_EVENT = "#status";
 
 export interface EffectContext {
   flow: Flow;
@@ -405,13 +406,16 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     return iteratorYield(iterator, value);
   }
 
-  function iteratorThrow(iterator: Iterator<any, T>, error: Error) {
+  function iteratorThrow(iterator: Iterator<any, T>, error: Error): void {
     if (!isRunning()) return;
     try {
       const { done, value } = iterator.throw?.(error) || {};
       // error handled
       return iteratorDone(iterator, done, value);
     } catch (e) {
+      if (iteratorStack.length) {
+        return iteratorThrow(iteratorStack.pop(), e as Error);
+      }
       // error is not handled
       return statusChanged("faulted", e, false);
     }
@@ -503,7 +507,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       const { done, value } = iterator.next(payload);
       return iteratorDone(iterator, done, value);
     } catch (e) {
-      return statusChanged("faulted", e, false);
+      iteratorThrow(iterator, e as Error);
     }
   }
 

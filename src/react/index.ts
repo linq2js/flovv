@@ -14,7 +14,7 @@ import {
 } from "../lib";
 
 export interface FlowProviderProps {
-  controller: FlowController;
+  controller?: FlowController;
   suspense?: boolean;
   errorBoundary?: boolean;
 }
@@ -48,6 +48,8 @@ export interface FlowHook<T extends AnyFunc> extends FlowHookWithoutArgs<T> {
 export interface UseFlowOptions<T extends AnyFunc>
   extends UseFlowOptionsWithoutArgs {
   args?: Parameters<T>;
+  suspense?: boolean;
+  errorBoundary?: boolean;
 }
 
 export interface UseFlowOptionsWithoutArgs {}
@@ -131,37 +133,42 @@ export function useFlow<T extends AnyFunc>(
   options?: UseFlowOptions<T>
 ): FlowHook<T>;
 export function useFlow<T extends AnyFunc>(...args: any[]): any {
+  let fixedArgs = false;
   // key array  useFlow([key, arg1, arg2, arg3, arg4])
   if (Array.isArray(args[0])) {
     // overwrite args option
-    args[2] = { ...args[2], args: args[0].slice(1), fixedArgs: true };
+    args[2] = { ...args[2], args: args[0].slice(1) };
     args[0] = makeKey(args[0]);
+    fixedArgs = true;
   }
-  const { controller, errorBoundary, suspense } = React.useContext(flowContext);
-  const [key, fn, options = {}] =
+  const provider = React.useContext(flowContext);
+  const [
+    key,
+    fn,
+    {
+      suspense = provider.suspense,
+      errorBoundary = provider.errorBoundary,
+      ...options
+    } = {} as any,
+  ] =
     typeof args[1] === "function" ? args : [getKey(args[0]), args[0], args[1]];
   const rerender = React.useState<any>()[1];
   const optionsRef = React.useRef<any>();
   const renderingRef = React.useRef(false);
   const flowRef = React.useRef<InternalFlow<T>>();
   const { flowHook, handleSuspeseAndErrorBoundary } = React.useMemo(() => {
-    return createFlowHook(
-      flowRef,
-      renderingRef,
-      optionsRef,
-      suspense,
-      errorBoundary
-    );
-  }, [suspense, errorBoundary]);
+    return createFlowHook(flowRef, renderingRef, optionsRef, fixedArgs);
+  }, [suspense, errorBoundary, fixedArgs]);
 
   renderingRef.current = true;
   optionsRef.current = options;
   // make sure removed flow does not cause an error
-  flowRef.current = (controller.flow(key, fn) as any) || flowRef.current;
+  flowRef.current =
+    (provider.controller.flow(key, fn) as any) || flowRef.current;
 
   React.useLayoutEffect(() => {
     renderingRef.current = false;
-    return controller.on(FLOW_UPDATE_EVENT, (flow) => {
+    return provider.controller.on(FLOW_UPDATE_EVENT, (flow) => {
       if (flow.key === key) {
         rerender({});
       }
@@ -176,18 +183,20 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
 function createFlowHook<T extends AnyFunc>(
   flowRef: React.MutableRefObject<InternalFlow<T> | undefined>,
   renderingRef: React.MutableRefObject<boolean>,
-  optionsRef: React.MutableRefObject<any>,
-  suspense: boolean,
-  errorBoundary: boolean
+  optionsRef: React.MutableRefObject<UseFlowOptions<AnyFunc>>,
+  fixedArgs: boolean
 ) {
   function handleSuspeseAndErrorBoundary() {
     if (!flowRef.current || !renderingRef.current) return;
 
-    if (errorBoundary && flowRef.current.status === "faulted") {
+    if (
+      optionsRef.current.errorBoundary &&
+      flowRef.current.status === "faulted"
+    ) {
       throw flowRef.current.error;
     }
 
-    if (suspense && flowRef.current.status === "running") {
+    if (optionsRef.current.suspense && flowRef.current.status === "running") {
       throw new Promise((resolve) => {
         flowRef.current?.on("update", resolve);
       });
@@ -200,7 +209,7 @@ function createFlowHook<T extends AnyFunc>(
   }
 
   function run(type: "start" | "restart", args: Parameters<T>) {
-    if (args.length && optionsRef.current?.fixedArgs) {
+    if (args.length && fixedArgs) {
       throw new Error(
         "Passing arguments to fixed args flow is not allowed. Use the overload useFlow(key, flow, { args: [] }) instead"
       );
@@ -274,10 +283,15 @@ export const FlowProvider: React.FC<FlowProviderProps> = (props) => {
     errorBoundary = parentProvider?.errorBoundary || false,
     children,
   } = props;
+
   const value = React.useMemo(
     () => ({ controller, suspense, errorBoundary }),
     [controller, suspense, errorBoundary]
   );
+
+  if (!controller) {
+    throw new Error("No controller provided");
+  }
 
   if (controller.error) {
     throw controller.error;

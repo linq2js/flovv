@@ -16,6 +16,21 @@ import {
 
 export interface Cancellable {}
 
+export function retry<T extends AnyFunc>(
+  times: number,
+  fn: T,
+  ...args: Parameters<T>
+) {
+  return (function* () {
+    for (let i = 0; i < times; i++) {
+      try {
+        const result: ReturnType<T> = yield fn(...args);
+        return result;
+      } catch (e) {}
+    }
+  })();
+}
+
 export function remove(key: string | AnyFunc | (string | AnyFunc)[]) {
   return createEffect((ec) => {
     if (Array.isArray(key)) {

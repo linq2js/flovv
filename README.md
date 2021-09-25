@@ -40,3 +40,6 @@ function* Increment() {
 ### Effects
 
 ## Examples
+
+- [Load More / Infinite Scroll](https://codesandbox.io/s/flovv-reddit-infinite-demo-nnq70?file=/src/App.js)
+- [Caching, Auto Refresh](https://codesandbox.io/s/flovv-reddit-demo-nc5fw?file=/src/App.js)

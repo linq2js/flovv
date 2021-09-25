@@ -1,4 +1,4 @@
-import { debounce, partial, stale, update } from "./effects";
+import { debounce, partial, retry, stale, update } from "./effects";
 import { createController, delay, on, race, start } from "./index";
 
 test("simple generator", async () => {
@@ -236,4 +236,47 @@ test("cancel promise", async () => {
   expect(callback).toBeCalled();
   await delay(15);
   expect(flow.data).toBeUndefined();
+});
+
+test("retry (iterator)", () => {
+  const results = [undefined, undefined, 1];
+  function* api() {
+    const result = results.shift();
+    if (!result) {
+      throw new Error("No result");
+    }
+    return result;
+  }
+
+  function* fetchData() {
+    const data: number = yield retry(3, api);
+    return data;
+  }
+
+  const ctrl = createController();
+  const flow = ctrl.flow(fetchData);
+  flow.start();
+  expect(flow.data).toBe(1);
+});
+
+test("retry (async)", async () => {
+  const results = [undefined, undefined, 1];
+  async function api() {
+    const result = results.shift();
+    if (!result) {
+      throw new Error("No result");
+    }
+    return result;
+  }
+
+  function* fetchData() {
+    const data: number = yield retry(3, api);
+    return data;
+  }
+
+  const ctrl = createController();
+  const flow = ctrl.flow(fetchData);
+  flow.start();
+  await delay(1);
+  expect(flow.data).toBe(1);
 });
