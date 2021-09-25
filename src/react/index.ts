@@ -15,6 +15,7 @@ import {
 
 export interface FlowProviderProps {
   controller?: FlowController;
+  defaultFlow?: AnyFunc;
   suspense?: boolean;
   errorBoundary?: boolean;
 }
@@ -66,10 +67,15 @@ export interface PrefetchMapFn extends Function {
     | undefined;
 }
 
+interface FlowHookOptions<T extends AnyFunc> extends UseFlowOptions<T> {
+  prependArgs?: any[];
+}
+
 interface FlowContext {
   controller: FlowController;
   suspense: boolean;
   errorBoundary: boolean;
+  defaultFlow: AnyFunc;
 }
 
 const defaultFlowContext = {
@@ -132,16 +138,38 @@ export function useFlow<T extends AnyFunc>(
   flow: T,
   options?: UseFlowOptions<T>
 ): FlowHook<T>;
+
+export function useFlow(
+  key: string | [string, ...any[]],
+  options?: UseFlowOptionsWithoutArgs
+): FlowHook<AnyFunc>;
 export function useFlow<T extends AnyFunc>(...args: any[]): any {
   let fixedArgs = false;
+  const originalKey = args[0];
   // key array  useFlow([key, arg1, arg2, arg3, arg4])
   if (Array.isArray(args[0])) {
     // overwrite args option
+    // exclude first item (key)
     args[2] = { ...args[2], args: args[0].slice(1) };
     args[0] = makeKey(args[0]);
     fixedArgs = true;
   }
+
   const provider = React.useContext(flowContext);
+  let useDefaultFlow = false;
+  let overrideArgs: [any, T, UseFlowOptions<T>];
+  if (typeof args[1] === "function") {
+    overrideArgs = args as any;
+  }
+  // useFlow(fn, options)
+  else if (typeof args[0] === "function") {
+    overrideArgs = [getKey(args[0]), args[0], args[1]];
+  } else {
+    // useFlow(key, options)
+    useDefaultFlow = true;
+    overrideArgs = [getKey(args[0]), provider.defaultFlow as any, args[1]];
+  }
+
   const [
     key,
     fn,
@@ -149,19 +177,28 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
       suspense = provider.suspense,
       errorBoundary = provider.errorBoundary,
       ...options
-    } = {} as any,
-  ] =
-    typeof args[1] === "function" ? args : [getKey(args[0]), args[0], args[1]];
+    } = {},
+  ] = overrideArgs;
   const rerender = React.useState<any>()[1];
-  const optionsRef = React.useRef<any>();
+  const optionsRef = React.useRef<FlowHookOptions<T>>();
   const renderingRef = React.useRef(false);
   const flowRef = React.useRef<InternalFlow<T>>();
   const { flowHook, handleSuspeseAndErrorBoundary } = React.useMemo(() => {
     return createFlowHook(flowRef, renderingRef, optionsRef, fixedArgs);
   }, [suspense, errorBoundary, fixedArgs]);
 
+  // update refs
   renderingRef.current = true;
-  optionsRef.current = options;
+  optionsRef.current = {
+    ...options,
+    suspense,
+    errorBoundary,
+    prependArgs: useDefaultFlow
+      ? Array.isArray(originalKey)
+        ? originalKey
+        : [originalKey]
+      : [],
+  };
   // make sure removed flow does not cause an error
   flowRef.current =
     (provider.controller.flow(key, fn) as any) || flowRef.current;
@@ -183,29 +220,39 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
 function createFlowHook<T extends AnyFunc>(
   flowRef: React.MutableRefObject<InternalFlow<T> | undefined>,
   renderingRef: React.MutableRefObject<boolean>,
-  optionsRef: React.MutableRefObject<UseFlowOptions<AnyFunc>>,
+  optionsRef: React.MutableRefObject<FlowHookOptions<T> | undefined>,
   fixedArgs: boolean
 ) {
   function handleSuspeseAndErrorBoundary() {
     if (!flowRef.current || !renderingRef.current) return;
 
     if (
-      optionsRef.current.errorBoundary &&
+      optionsRef.current?.errorBoundary &&
       flowRef.current.status === "faulted"
     ) {
       throw flowRef.current.error;
     }
 
-    if (optionsRef.current.suspense && flowRef.current.status === "running") {
+    if (optionsRef.current?.suspense && flowRef.current.status === "running") {
       throw new Promise((resolve) => {
         flowRef.current?.on("update", resolve);
       });
     }
   }
 
-  function getArgs(args: Parameters<T>): Parameters<T> {
-    if (!optionsRef.current.args) return args;
-    return args.concat(optionsRef.current.args.slice(args.length)) as any;
+  function getArgs(inputArgs: Parameters<T>): Parameters<T> {
+    const prependArgs = optionsRef.current?.prependArgs || [];
+    const defaultArgs = optionsRef.current?.args;
+
+    if (!defaultArgs) {
+      return [...prependArgs, ...inputArgs] as any;
+    }
+
+    return [
+      ...prependArgs,
+      ...inputArgs,
+      ...defaultArgs.slice(inputArgs.length),
+    ] as any;
   }
 
   function run(type: "start" | "restart", args: Parameters<T>) {
@@ -281,12 +328,13 @@ export const FlowProvider: React.FC<FlowProviderProps> = (props) => {
     controller = parentProvider?.controller,
     suspense = parentProvider?.suspense || false,
     errorBoundary = parentProvider?.errorBoundary || false,
+    defaultFlow = parentProvider?.defaultFlow,
     children,
   } = props;
 
   const value = React.useMemo(
-    () => ({ controller, suspense, errorBoundary }),
-    [controller, suspense, errorBoundary]
+    () => ({ controller, suspense, errorBoundary, defaultFlow }),
+    [controller, suspense, errorBoundary, defaultFlow]
   );
 
   if (!controller) {

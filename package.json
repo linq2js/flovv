@@ -20,7 +20,7 @@
     "build": "npm run build:js && npm run build:es",
     "release": "standard-version && npm publish",
     "release:major": "standard-version -r major && npm publish",
-    "push": "git push origin --tags",
+    "push": "git push origin --tags && git push",
     "test": "jest",
     "test:coverage": "jest --coverage"
   },

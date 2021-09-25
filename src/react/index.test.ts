@@ -46,3 +46,23 @@ test("default args", () => {
 
   expect(result.current).toBe(6);
 });
+
+test("default flow", () => {
+  function defaultFlow(key: string, value: number = 1) {
+    return key + value;
+  }
+  const [wrapper] = createWrapper({ defaultFlow });
+  const { result } = renderHook(
+    () => {
+      const a = useFlow("a").start().data;
+      const b = useFlow(["b"]).start().data;
+      const c = useFlow(["c", 2]).start().data;
+      const d = useFlow("d").start(3).data;
+      const e = useFlow("e").start(4).data;
+      return [a, b, c, d, e];
+    },
+    { wrapper }
+  );
+
+  expect(result.current).toEqual(["a1", "b1", "c2", "d3", "e4"]);
+});
