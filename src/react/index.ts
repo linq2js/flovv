@@ -15,7 +15,7 @@ import {
 
 export interface FlowProviderProps {
   controller?: FlowController;
-  defaultFlow?: AnyFunc;
+  defaultFlow?: AnyFunc | Record<string, AnyFunc>;
   suspense?: boolean;
   errorBoundary?: boolean;
 }
@@ -75,16 +75,10 @@ interface FlowContext {
   controller: FlowController;
   suspense: boolean;
   errorBoundary: boolean;
-  defaultFlow: AnyFunc;
+  defaultFlow: AnyFunc | Record<string, AnyFunc>;
 }
 
-const defaultFlowContext = {
-  get controller(): never {
-    throw new Error("No flow provider found");
-  },
-};
-
-const flowContext = React.createContext<FlowContext>(defaultFlowContext as any);
+const flowContext = React.createContext<FlowContext>(null as any);
 
 export function useController(): FlowController {
   return React.useContext(flowContext).controller;
@@ -156,7 +150,7 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
   }
 
   const provider = React.useContext(flowContext);
-  let useDefaultFlow = false;
+  const prependArgs: any[] = [];
   let overrideArgs: [any, T, UseFlowOptions<T>];
   if (typeof args[1] === "function") {
     overrideArgs = args as any;
@@ -166,8 +160,25 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
     overrideArgs = [getKey(args[0]), args[0], args[1]];
   } else {
     // useFlow(key, options)
-    useDefaultFlow = true;
-    overrideArgs = [getKey(args[0]), provider.defaultFlow as any, args[1]];
+    if (Array.isArray(originalKey)) {
+      prependArgs.push(...originalKey);
+    } else {
+      prependArgs.push(originalKey);
+    }
+    let defaultFlow: T;
+    const defaultFlowKey = prependArgs[0];
+    if (typeof provider.defaultFlow === "function") {
+      defaultFlow = provider.defaultFlow as any;
+    } else if (
+      typeof provider.defaultFlow === "object" &&
+      defaultFlowKey in provider.defaultFlow
+    ) {
+      defaultFlow = provider.defaultFlow[defaultFlowKey] as any;
+      prependArgs.shift();
+    } else {
+      throw new Error(`No default flow provided for key ${originalKey}`);
+    }
+    overrideArgs = [getKey(args[0]), defaultFlow, args[1]];
   }
 
   const [
@@ -180,7 +191,7 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
     } = {},
   ] = overrideArgs;
   const rerender = React.useState<any>()[1];
-  const optionsRef = React.useRef<FlowHookOptions<T>>();
+  const optionsRef = React.useRef<FlowHookOptions<T>>({});
   const renderingRef = React.useRef(false);
   const flowRef = React.useRef<InternalFlow<T>>();
   const { flowHook, handleSuspeseAndErrorBoundary } = React.useMemo(() => {
@@ -193,11 +204,7 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
     ...options,
     suspense,
     errorBoundary,
-    prependArgs: useDefaultFlow
-      ? Array.isArray(originalKey)
-        ? originalKey
-        : [originalKey]
-      : [],
+    prependArgs,
   };
   // make sure removed flow does not cause an error
   flowRef.current =
@@ -220,20 +227,20 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
 function createFlowHook<T extends AnyFunc>(
   flowRef: React.MutableRefObject<InternalFlow<T> | undefined>,
   renderingRef: React.MutableRefObject<boolean>,
-  optionsRef: React.MutableRefObject<FlowHookOptions<T> | undefined>,
+  optionsRef: React.MutableRefObject<FlowHookOptions<T>>,
   fixedArgs: boolean
 ) {
   function handleSuspeseAndErrorBoundary() {
     if (!flowRef.current || !renderingRef.current) return;
 
     if (
-      optionsRef.current?.errorBoundary &&
+      optionsRef.current.errorBoundary &&
       flowRef.current.status === "faulted"
     ) {
       throw flowRef.current.error;
     }
 
-    if (optionsRef.current?.suspense && flowRef.current.status === "running") {
+    if (optionsRef.current.suspense && flowRef.current.status === "running") {
       throw new Promise((resolve) => {
         flowRef.current?.on("update", resolve);
       });
@@ -241,8 +248,8 @@ function createFlowHook<T extends AnyFunc>(
   }
 
   function getArgs(inputArgs: Parameters<T>): Parameters<T> {
-    const prependArgs = optionsRef.current?.prependArgs || [];
-    const defaultArgs = optionsRef.current?.args;
+    const prependArgs = optionsRef.current.prependArgs || [];
+    const defaultArgs = optionsRef.current.args;
 
     if (!defaultArgs) {
       return [...prependArgs, ...inputArgs] as any;

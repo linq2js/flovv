@@ -47,7 +47,7 @@ test("default args", () => {
   expect(result.current).toBe(6);
 });
 
-test("default flow", () => {
+test("default flow (function)", () => {
   function defaultFlow(key: string, value: number = 1) {
     return key + value;
   }
@@ -65,4 +65,21 @@ test("default flow", () => {
   );
 
   expect(result.current).toEqual(["a1", "b1", "c2", "d3", "e4"]);
+});
+
+test("default flow (hash)", () => {
+  const [wrapper] = createWrapper({
+    defaultFlow: { sum: (a, b) => a + b, mul: (a, b) => a * b },
+  });
+  const { result } = renderHook(
+    () => {
+      const sum = useFlow(["sum", 1, 2]).start().data;
+      const mul = useFlow("mul").start(1, 2).data;
+
+      return [sum, mul];
+    },
+    { wrapper }
+  );
+
+  expect(result.current).toEqual([3, 2]);
 });
