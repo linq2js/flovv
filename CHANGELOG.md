@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.8.0](https://github.com/linq2js/flovv/compare/v1.7.4...v1.8.0) (2021-09-25)
+
+
+### Features
+
+* support default flow ([55f196f](https://github.com/linq2js/flovv/commit/55f196f61ea9c8fd10ea50dc21fe04fb9f0fe6b0))
+
 ### [1.7.4](https://github.com/linq2js/flovv/compare/v1.7.3...v1.7.4) (2021-09-25)
 
 
