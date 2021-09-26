@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.9.0](https://github.com/linq2js/flovv/compare/v1.8.1...v1.9.0) (2021-09-26)
+
+
+### Features
+
+* add merge effect ([9b7c8de](https://github.com/linq2js/flovv/commit/9b7c8de79ac90cdd1474490ffc623333d90a6439))
+
 ### [1.8.1](https://github.com/linq2js/flovv/compare/v1.8.0...v1.8.1) (2021-09-25)
 
 ## [1.8.0](https://github.com/linq2js/flovv/compare/v1.7.4...v1.8.0) (2021-09-25)
