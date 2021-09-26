@@ -69,11 +69,17 @@ export interface InternalFlow<T extends AnyFunc = any> extends Flow<T> {
   readonly parent: InternalFlow | undefined;
   readonly controller: InternalFlowController;
   readonly called: number;
-  stale: boolean;
+  setStale(value: number): void;
+  setMerge(
+    mergeFn: (
+      current: FlowDataInfer<T>,
+      previous?: FlowDataInfer<T>
+    ) => FlowDataInfer<T>
+  ): void;
+  setNext(next: Function): void;
   partial(data: any, wait: boolean): this;
   statusChanged(status: FlowStatus, value: any, forceUpdate: boolean): void;
   onChildError(error: Error): void;
-  setNext(next: Function): void;
 }
 
 export type FlowTypeInfer<T> = T extends (...args: any[]) => Generator<Effect>
@@ -343,7 +349,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   hasData,
   extra = {},
 }: FlowOptions<T>) {
-  let stale = false;
+  let stale: number = 0;
   let status: FlowStatus = initStatus;
   let error: Error;
   let childError: Error;
@@ -353,6 +359,12 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   let called = 0;
   let currentNext: Function | undefined;
   let cancelFn: Function | undefined;
+  let mergeFn:
+    | ((
+        current: FlowDataInfer<T>,
+        previous?: FlowDataInfer<T>
+      ) => FlowDataInfer<T>)
+    | undefined;
 
   const iteratorStack: any[] = [];
   const emitter = createEmitter();
@@ -364,7 +376,9 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   }
 
   function isRunning() {
-    return !disposed && !stale && !flow.cancelled && status === "running";
+    return (
+      !disposed && !isStale(true) && !flow.cancelled && status === "running"
+    );
   }
 
   function statusChanged(
@@ -373,12 +387,16 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     forceUpdate: boolean
   ) {
     if (!forceUpdate && !isRunning()) return;
-    stale = false;
+    stale = 0;
     status = newStatus;
     cancelFn = undefined;
     if (newStatus === "completed") {
       hasData = true;
-      data = value;
+      if (mergeFn) {
+        data = mergeFn(value, data);
+      } else {
+        data = value;
+      }
       onSuccess?.(data as any);
       cleanup();
     } else if (newStatus === "faulted") {
@@ -499,7 +517,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   }
 
   function iteratorNext(iterator: Iterator<any, T>, payload: any) {
-    if (stale || flow.cancelled) return;
+    if (!isRunning()) return;
     if (childError) {
       return iteratorThrow(iterator, childError);
     }
@@ -511,7 +529,20 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     }
   }
 
-  const flow: InternalFlow = {
+  function isStale(triggerUpdated: boolean) {
+    const now = Date.now();
+    if (stale !== 0 && stale !== 1 && stale <= now) {
+      // mark as stale and do not trigger updated
+      stale = 1;
+      if (triggerUpdated) {
+        controller.flowUpdated(flow);
+      }
+      cleanup();
+    }
+    return stale !== 0 && stale <= now;
+  }
+
+  const flow: InternalFlow<T> = {
     key,
     fn,
     controller,
@@ -550,7 +581,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       return data;
     },
     set data(value) {
-      flow.update(value);
+      flow.update(value as any);
     },
     get status() {
       return status;
@@ -559,14 +590,16 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       return error;
     },
     get stale() {
-      return stale;
+      return isStale(false);
     },
-    set stale(value: boolean) {
+    setMerge(value) {
+      mergeFn = value;
+    },
+    setStale(value: number) {
       // cannot turn stale to unstale
-      if (stale) return;
+      if (stale !== 0 && stale < value) return;
       stale = value;
-      controller.flowUpdated(flow);
-      cleanup();
+      isStale(true);
     },
     get cancelled() {
       return cancelled || parent?.cancelled || false;
@@ -592,13 +625,14 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     },
     start(...args: any[]) {
       // running or finished
-      if (status !== "idle" && !stale) {
+      if (status !== "idle" && !isStale(false)) {
         return flow;
       }
 
       cancelFn = undefined;
       cancelled = false;
-      stale = false;
+      mergeFn = undefined;
+      stale = 0;
       called++;
 
       if (flow.previous) {
@@ -636,7 +670,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       }
       return flow;
     },
-    restart(...args: any[]) {
+    restart(...args) {
       if (status === "idle" || stale) {
         return flow.start(...args);
       }
@@ -658,6 +692,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
         if (typeof value === "function") {
           value = value(data);
         }
+        mergeFn = undefined;
         statusChanged("completed", value, true);
       }
       return flow;
@@ -676,7 +711,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       currentNext = value;
     },
     next(payload: any) {
-      if (!cancelled && !stale && currentNext) {
+      if (!cancelled && !isStale(true) && currentNext) {
         const next = currentNext;
         currentNext = undefined;
         status = "running";

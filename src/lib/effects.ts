@@ -112,11 +112,7 @@ export function stale(
     // stale('when', timeout)
     if (type === "when" && !isNaN(key)) {
       ec.flow.on("end", () => {
-        let called = ec.flow.called;
-        setTimeout(() => {
-          if (called !== ec.flow.called) return;
-          ec.flow.stale = true;
-        }, key);
+        ec.flow.setStale(Date.now() + key);
       });
     }
     // stale('when', promise)
@@ -125,7 +121,7 @@ export function stale(
         const called = ec.flow.called;
         const onDone = () => {
           if (called !== ec.flow.called) return;
-          ec.flow.stale = true;
+          ec.flow.setStale(2);
         };
         if (typeof key.finally === "function") {
           key.finally(onDone);
@@ -171,7 +167,7 @@ export function stale(
             }
 
             cleanup();
-            ec.flow.stale = true;
+            ec.flow.setStale(2);
           },
           (listener, add) => {
             called = ec.flow.called;
@@ -341,6 +337,13 @@ export function update(key: any, value: any) {
       throw new Error("Cannot update running flow");
     }
     flow?.update(value);
+    ec.next();
+  });
+}
+
+export function merge<T = any>(fn: (current: T, previous?: T) => T) {
+  return createEffect((ec: InternalEffectContext) => {
+    ec.flow.setMerge(fn as any);
     ec.next();
   });
 }
