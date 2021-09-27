@@ -81,7 +81,23 @@ export function cancel(target?: any): any {
   });
 }
 
+export function expiry(date: Date): Effect;
+export function expiry(ms: number): Effect;
+export function expiry(value: any) {
+  return createEffect((ec: InternalEffectContext) => {
+    ec.flow.on("end", () => {
+      if (value instanceof Date) {
+        ec.flow.setExpiry(value.getTime());
+      } else {
+        ec.flow.setExpiry(Date.now() + value);
+      }
+    });
+    ec.next();
+  });
+}
+
 export function stale(type: "when", done: Promise<any>): Effect;
+export function stale(type: "when", date: Date): Effect;
 export function stale(type: "when", timeout: number): Effect;
 export function stale(
   type: "when",
@@ -113,6 +129,10 @@ export function stale(
     if (type === "when" && !isNaN(key)) {
       ec.flow.on("end", () => {
         ec.flow.setStale(Date.now() + key);
+      });
+    } else if (type === "when" && key instanceof Date) {
+      ec.flow.on("end", () => {
+        ec.flow.setStale(key.getTime());
       });
     }
     // stale('when', promise)
@@ -255,22 +275,57 @@ export function call<T extends AnyFunc>(fn: T, ...args: Parameters<T>) {
   });
 }
 
-export function start(key: string, ...args: any[]): Effect;
-export function start<T extends AnyFunc>(fn: T, ...args: Parameters<T>): Effect;
-export function start(key: any, ...args: any[]) {
+export function start<T extends AnyFunc>(
+  flow: T,
+  ...args: Parameters<T>
+): Effect;
+export function start<T extends AnyFunc>(
+  key: [string, ...Parameters<T>],
+  flow: T
+): Effect;
+export function start<T extends AnyFunc>(
+  key: string,
+  flow: T,
+  ...args: Parameters<T>
+): Effect;
+export function start(...args: any[]) {
   return createEffect((ec) => {
-    run(ec, "start", key, args);
+    runFlow(ec, "start", args);
   });
 }
 
-export function restart(key: string, ...args: any[]): Effect;
-export function restart<T extends AnyFunc>(
-  fn: T,
+export function run<T extends AnyFunc>(flow: T, ...args: Parameters<T>): Effect;
+export function run<T extends AnyFunc>(
+  key: [string, ...Parameters<T>],
+  flow: T
+): Effect;
+export function run<T extends AnyFunc>(
+  key: string,
+  flow: T,
   ...args: Parameters<T>
 ): Effect;
-export function restart(key: any, ...args: any[]) {
+export function run(...args: any[]) {
   return createEffect((ec) => {
-    run(ec, "start", key, args);
+    runFlow(ec, "execute", args);
+  });
+}
+
+export function restart<T extends AnyFunc>(
+  flow: T,
+  ...args: Parameters<T>
+): Effect;
+export function restart<T extends AnyFunc>(
+  key: [string, ...Parameters<T>],
+  flow: T
+): Effect;
+export function restart<T extends AnyFunc>(
+  key: string,
+  flow: T,
+  ...args: Parameters<T>
+): Effect;
+export function restart(...args: any[]) {
+  return createEffect((ec) => {
+    runFlow(ec, "restart", args);
   });
 }
 
@@ -342,41 +397,38 @@ export function merge<T = any>(fn: (current: T, previous?: T) => T) {
   });
 }
 
-function run(
+function runFlow(
   ec: EffectContext,
-  method: "start" | "restart",
-  key: any,
+  method: "start" | "restart" | "execute",
   args: any[]
 ) {
-  let flow: Flow;
-  if (typeof args[0] === "function" && typeof key !== "function") {
-    flow = ec.controller.flow(key as string, args[0]);
-    // remove first args
-    args = args.slice(1);
-  } else {
-    flow = ec.controller.flow(key);
+  const result = (ec.controller as any)[method](...args);
+
+  if (method === "execute") {
+    return ec.next(result);
   }
-  // the effect is never done
-  if (!flow) return;
-  flow[method](...args);
 
   const onUpdate = () => {
-    const current = flow.current;
-    if (current.status === "running") return;
+    const current = result.current;
+    if (current.status === "running") {
+      return;
+    }
     if (current.status === "faulted") {
       return ec.fail(current.error);
     }
     ec.next(current.data);
   };
 
-  if (flow.status !== "running" && flow.status !== "idle") {
+  if (result.status !== "running" && result.status !== "idle") {
     return onUpdate();
   }
+
   const cleanup = ec.controller.on(FLOW_UPDATE_EVENT, (x: Flow) => {
-    if (x.key !== flow.key) return;
+    if (x.key !== result.key) return;
     cleanup();
     onUpdate();
   });
+
   ec.flow.on("end", cleanup);
 }
 

@@ -59,7 +59,7 @@ test("execute", async () => {
     return result;
   }
   const ctrl = createController();
-  await expect(ctrl.execute(fetchData, 1)).resolves.toBe(1);
-  await expect(ctrl.execute(fetchData, 2)).resolves.toBe(2);
+  await expect(ctrl.run(fetchData, 1)).resolves.toBe(1);
+  await expect(ctrl.run(fetchData, 2)).resolves.toBe(2);
   expect(callback).toBeCalledTimes(2);
 });

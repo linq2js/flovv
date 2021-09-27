@@ -1,3 +1,4 @@
+import { expiry } from ".";
 import {
   retry,
   partial,
@@ -260,4 +261,17 @@ test("merge", () => {
   }
   const ctrl = createController();
   expect(ctrl.flow(fetchData).start().data).toBe(2);
+});
+
+test("expiry", async () => {
+  function* fetchData() {
+    yield expiry(10);
+    return Math.random();
+  }
+  const ctrl = createController();
+  const flow = ctrl.flow(fetchData);
+  const v1 = flow.start().data;
+  await delay(100);
+  const v2 = flow.start().data;
+  expect(v1).not.toBe(v2);
 });

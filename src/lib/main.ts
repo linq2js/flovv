@@ -51,6 +51,7 @@ export interface Flow<T extends AnyFunc = AnyFunc> {
   readonly current: this;
   readonly hasData: boolean;
   readonly extra: Record<string, any>;
+  readonly expiry: number;
   on(
     event: "end" | "update" | "cancel" | "start",
     listener: (flow: Flow<T>) => void
@@ -76,6 +77,7 @@ export interface InternalFlow<T extends AnyFunc = any> extends Flow<T> {
       previous?: FlowDataInfer<T>
     ) => FlowDataInfer<T>
   ): void;
+  setExpiry(value: number): void;
   setNext(next: Function): void;
   partial(data: any, wait: boolean): this;
   statusChanged(status: FlowStatus, value: any, forceUpdate: boolean): void;
@@ -100,10 +102,10 @@ export interface FlowController {
   readonly error?: Error;
   start: FlowExecutor;
   restart: FlowExecutor;
-  execute<T extends AnyFunc>(
+  run<T extends AnyFunc>(
     flow: T,
     ...args: Parameters<T>
-  ): Promise<ReturnType<T>>;
+  ): CancellablePromise<ReturnType<T>>;
   flow<T extends AnyFunc>(key: string, flow: T): Flow<T>;
   flow<T extends AnyFunc>(flow: T): Flow<T>;
   flow(key: string): Flow | undefined;
@@ -113,6 +115,7 @@ export interface FlowController {
     event: typeof FLOW_UPDATE_EVENT | string | string[],
     listener: (payload: any) => void
   ): VoidFn;
+  gc(): void;
 }
 
 export interface InternalFlowController extends FlowController {
@@ -130,6 +133,7 @@ export interface ControllerOptions {
   context?: any;
   initData?: Record<string, any>;
   initFlow?: AnyFunc;
+  gcInterval?: number;
   onData?: (data: { [key: string]: any }) => void;
   onCompleted?: (flow: Flow) => void;
   onFaulted?: (flow: Flow) => void;
@@ -174,11 +178,13 @@ export function createController({
   onData,
   onCompleted,
   onFaulted,
+  gcInterval = 60000,
 }: ControllerOptions = {}): FlowController {
   let data = { ...initData };
   let promise = Promise.resolve();
   let ready = true;
   let error: Error;
+  let gcTimeout: NodeJS.Timeout;
   const flows = new Map<any, InternalFlow>();
   const emitter = createEmitter({ wildcard: "*", privateEventPrefix: "#" });
   const controller: InternalFlowController = {
@@ -292,19 +298,43 @@ export function createController({
       }
       emitter.emit(FLOW_UPDATE_EVENT, flow);
     },
-    execute(fn, ...args) {
-      return new Promise((resolve, reject) => {
-        const flow = createFlow({ controller, fn, key: {} });
-        flow.on("end", () => {
-          if (flow.faulted) {
-            return reject(flow.error);
-          }
-          return resolve(flow.data);
-        });
-        flow.start(...args);
-      });
+    run(fn, ...args) {
+      let cancel: () => void;
+      return Object.assign(
+        new Promise<ReturnType<typeof fn>>((resolve, reject) => {
+          const flow = createFlow({ controller, fn, key: {} });
+          flow.on("end", () => {
+            if (flow.faulted) {
+              return reject(flow.error);
+            }
+            return resolve(flow.data);
+          });
+          cancel = flow.cancel;
+          flow.start(...args);
+        }),
+        {
+          cancel() {
+            cancel?.();
+          },
+        }
+      );
+    },
+    gc() {
+      clearTimeout(gcTimeout);
+      gc();
     },
   };
+
+  function gc() {
+    flows.forEach((flow, key) => {
+      if (flow.expiry && flow.expiry <= Date.now()) {
+        flows.delete(key);
+      }
+    });
+    if (gcInterval) {
+      gcTimeout = setTimeout(gc, gcInterval);
+    }
+  }
 
   function run(type: "start" | "restart", inputs: any[]) {
     const args: any[] = [];
@@ -349,6 +379,8 @@ export function createController({
     });
   }
 
+  gc();
+
   return controller;
 }
 
@@ -375,6 +407,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   let called = 0;
   let currentNext: Function | undefined;
   let cancelFn: Function | undefined;
+  let expiry = 0;
   let mergeFn:
     | ((
         current: FlowDataInfer<T>,
@@ -391,9 +424,17 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     emitter.dispose();
   }
 
+  function isExpired() {
+    return expiry && expiry <= Date.now();
+  }
+
   function isRunning() {
     return (
-      !disposed && !isStale(true) && !flow.cancelled && status === "running"
+      !disposed &&
+      !isStale(true) &&
+      !isExpired() &&
+      !flow.cancelled &&
+      status === "running"
     );
   }
 
@@ -563,6 +604,9 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     fn,
     controller,
     statusChanged,
+    get expiry() {
+      return expiry;
+    },
     get extra() {
       return extra;
     },
@@ -608,6 +652,9 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     get stale() {
       return isStale(false);
     },
+    setExpiry(value) {
+      expiry = value;
+    },
     setMerge(value) {
       mergeFn = value;
     },
@@ -641,7 +688,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     },
     start(...args: any[]) {
       // running or finished
-      if (status !== "idle" && !isStale(false)) {
+      if (status !== "idle" && !isStale(false) && !isExpired()) {
         return flow;
       }
 
@@ -649,6 +696,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       cancelled = false;
       mergeFn = undefined;
       stale = 0;
+      expiry = 0;
       called++;
 
       if (flow.previous) {
