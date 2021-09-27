@@ -10,7 +10,7 @@ import {
   getKey,
   InternalFlow,
   makeKey,
-  FlowPrefetcher,
+  FlowExecutor,
 } from "../lib";
 
 export interface FlowProviderProps {
@@ -84,7 +84,7 @@ export function useController(): FlowController {
   return React.useContext(flowContext).controller;
 }
 
-export function usePrefetcher(): [FlowPrefetcher, PrefetchMapFn] {
+export function usePrefetcher(): [FlowExecutor, PrefetchMapFn] {
   const controller = useController();
   const keys = React.useRef<Set<any>>(new Set()).current;
   const rerender = React.useState<any>()[1];
