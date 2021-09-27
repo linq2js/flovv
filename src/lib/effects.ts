@@ -193,12 +193,6 @@ export function partial(data: any, wait?: boolean) {
 }
 
 export function on<T extends AnyFunc>(event: string | string[]): Effect;
-/**
- * handle the event that triggers by the flow controller and start the specified flow with new context
- * @param event
- * @param flow
- * @param args
- */
 export function on<T extends AnyFunc>(
   event: string | string[],
   flow: T,

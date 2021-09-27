@@ -51,3 +51,15 @@ test("cancel promise", async () => {
   await delay(15);
   expect(flow.data).toBeUndefined();
 });
+
+test("execute", async () => {
+  const callback = jest.fn();
+  function* fetchData(result: number) {
+    callback();
+    return result;
+  }
+  const ctrl = createController();
+  await expect(ctrl.execute(fetchData, 1)).resolves.toBe(1);
+  await expect(ctrl.execute(fetchData, 2)).resolves.toBe(2);
+  expect(callback).toBeCalledTimes(2);
+});

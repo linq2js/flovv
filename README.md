@@ -39,6 +39,36 @@ function* Increment() {
 
 ### Effects
 
+#### retry(times, fn, ...args)
+
+#### remove(key)
+
+#### debounce(ms)
+
+#### cancel()
+
+#### cancel(cancellable)
+
+#### cancel(key)
+
+#### cancel(flow)
+
+#### stale("when", promise)
+
+#### stale("when", timeout)
+
+#### stale("when", event, \[checkFn])
+
+#### stale("flow", flows, \[checkFn])
+
+#### partial(data)
+
+#### partial(data, wait)
+
+#### on(event)
+
+#### on(event, flow, ...args)
+
 ## Examples
 
 - [Load More / Infinite Scroll](https://codesandbox.io/s/flovv-reddit-infinite-demo-nnq70?file=/src/App.js)

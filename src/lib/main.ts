@@ -88,7 +88,7 @@ export type FlowTypeInfer<T> = T extends (...args: any[]) => Generator<Effect>
   ? never
   : T;
 
-export interface FlowPrefetcher {
+export interface FlowExecutor {
   <T extends AnyFunc>(flow: T, ...args: Parameters<T>): Flow<T>;
   <T extends AnyFunc>(key: [string, ...Parameters<T>], flow: T): Flow<T>;
   <T extends AnyFunc>(key: string, flow: T, ...args: Parameters<T>): Flow<T>;
@@ -98,8 +98,12 @@ export interface FlowController {
   readonly ready: boolean;
   readonly promise: Promise<void>;
   readonly error?: Error;
-  start: FlowPrefetcher;
-  restart: FlowPrefetcher;
+  start: FlowExecutor;
+  restart: FlowExecutor;
+  execute<T extends AnyFunc>(
+    flow: T,
+    ...args: Parameters<T>
+  ): Promise<ReturnType<T>>;
   flow<T extends AnyFunc>(key: string, flow: T): Flow<T>;
   flow<T extends AnyFunc>(flow: T): Flow<T>;
   flow(key: string): Flow | undefined;
@@ -287,6 +291,18 @@ export function createController({
         onFaulted?.(flow);
       }
       emitter.emit(FLOW_UPDATE_EVENT, flow);
+    },
+    execute(fn, ...args) {
+      return new Promise((resolve, reject) => {
+        const flow = createFlow({ controller, fn, key: {} });
+        flow.on("end", () => {
+          if (flow.faulted) {
+            return reject(flow.error);
+          }
+          return resolve(flow.data);
+        });
+        flow.start(...args);
+      });
     },
   };
 
