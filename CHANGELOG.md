@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.10.0](https://github.com/linq2js/flovv/compare/v1.9.0...v1.10.0) (2021-09-27)
+
+
+### Features
+
+* flow expiration ([6e27171](https://github.com/linq2js/flovv/commit/6e271718435b25f020a1ced6444c78532256a7bc))
+
 ## [1.9.0](https://github.com/linq2js/flovv/compare/v1.8.1...v1.9.0) (2021-09-26)
 
 
