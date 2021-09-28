@@ -79,6 +79,17 @@ export function debounce(ms: number) {
   });
 }
 
+export function block(): Effect;
+export function block(value: boolean): Effect;
+export function block(until: Date): Effect;
+export function block(ms: number): Effect;
+export function block(value: any = true) {
+  return createEffect((ec: InternalEffectContext) => {
+    ec.flow.setBlock(value);
+    ec.next();
+  });
+}
+
 export function cancel(): Effect;
 export function cancel(cancellable: Cancellable): Effect;
 export function cancel(key: string): Effect;

@@ -70,6 +70,7 @@ export interface InternalFlow<T extends AnyFunc = any> extends Flow<T> {
   readonly parent: InternalFlow | undefined;
   readonly controller: InternalFlowController;
   readonly called: number;
+  setBlock(value: any): void;
   setStale(value: number): void;
   setMerge(
     mergeFn: (
@@ -408,6 +409,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   let currentNext: Function | undefined;
   let cancelFn: Function | undefined;
   let expiry = 0;
+  let blocked = 0;
   let mergeFn:
     | ((
         current: FlowDataInfer<T>,
@@ -658,6 +660,17 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     setMerge(value) {
       mergeFn = value;
     },
+    setBlock(value) {
+      if (typeof value === "boolean") {
+        blocked = value ? Date.now() + Number.MAX_VALUE : 0;
+      } else if (value instanceof Date) {
+        blocked = value.getTime();
+      } else if (typeof value === "number") {
+        blocked = value;
+      } else {
+        throw new Error("Invalid block value");
+      }
+    },
     setStale(value: number) {
       // cannot turn stale to unstale
       if (stale !== 0 && stale < value) return;
@@ -671,6 +684,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     cancel() {
       if (cancelled) return flow;
       cancelled = true;
+      blocked = 0;
       cancelFn?.();
       emitter.emit("cancel", flow);
       cleanup();
@@ -697,6 +711,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       mergeFn = undefined;
       stale = 0;
       expiry = 0;
+      blocked = 0;
       called++;
 
       if (flow.previous) {
@@ -735,9 +750,14 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       return flow;
     },
     restart(...args) {
+      if (blocked && blocked >= Date.now()) {
+        return flow;
+      }
+
       if (status === "idle" || stale) {
         return flow.start(...args);
       }
+
       return createFlow({
         controller,
         parent,

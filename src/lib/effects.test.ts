@@ -1,4 +1,4 @@
-import { expiry } from ".";
+import { block, expiry } from ".";
 import {
   retry,
   partial,
@@ -274,4 +274,21 @@ test("expiry", async () => {
   await delay(100);
   const v2 = flow.start().data;
   expect(v1).not.toBe(v2);
+});
+
+test("block", async () => {
+  const results = [1, 2, 3];
+  function* fetchData() {
+    // block flow until it completed
+    yield block();
+    yield delay(10);
+    return results.shift();
+  }
+  const ctrl = createController();
+  const flow = ctrl.flow(fetchData);
+  flow.restart();
+  flow.restart();
+  flow.restart();
+  await delay(15);
+  expect(flow.data).toBe(1);
 });
