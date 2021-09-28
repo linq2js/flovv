@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.11.0](https://github.com/linq2js/flovv/compare/v1.10.0...v1.11.0) (2021-09-28)
+
+
+### Features
+
+* add more signature for useFlow ([a980260](https://github.com/linq2js/flovv/commit/a98026044625affd032a0af78f4e2e37fdfa6d1c))
+
 ## [1.10.0](https://github.com/linq2js/flovv/compare/v1.9.0...v1.10.0) (2021-09-27)
 
 
