@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.12.0](https://github.com/linq2js/flovv/compare/v1.11.0...v1.12.0) (2021-09-28)
+
+
+### Features
+
+* add block logic ([fa73e55](https://github.com/linq2js/flovv/commit/fa73e553770509e57e04b3f097e9e8ccf41ee903))
+
 ## [1.11.0](https://github.com/linq2js/flovv/compare/v1.10.0...v1.11.0) (2021-09-28)
 
 
