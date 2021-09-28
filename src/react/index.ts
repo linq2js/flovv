@@ -11,9 +11,6 @@ import {
   InternalFlow,
   makeKey,
   FlowExecutor,
-  createFlow,
-  InternalFlowController,
-  NO_KEY,
 } from "../lib";
 
 export interface FlowProviderProps {
@@ -255,65 +252,6 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
 export interface FlowComponentOptions<TProps> {
   loading?: (props: TProps) => any;
   error?: (props: TProps, error: any) => any;
-}
-
-export function floc<TProps>(
-  renderFn: (props: TProps) => any,
-  { loading, error }: FlowComponentOptions<TProps> = {}
-) {
-  return React.memo((props: TProps) => {
-    const { controller, suspense } = React.useContext(flowContext);
-    const flowUpdatedRef = React.useRef(false);
-    const [rerenderProps, rerender] = React.useState<any>();
-    const flowRef = React.useRef<Flow<typeof renderFn>>();
-    const executingRef = React.useRef(false);
-
-    executingRef.current = true;
-
-    React.useEffect(() => () => {
-      flowRef.current?.cancel();
-    });
-
-    // if the flow just updates status we dont need to restart the flow
-    // only restart the flow if props is changed or re-render effect is triggered by hooks
-    if (!flowUpdatedRef.current || rerenderProps !== props) {
-      flowRef.current?.cancel();
-      const flow = (flowRef.current = createFlow<typeof renderFn>({
-        controller: controller as InternalFlowController,
-        fn: renderFn,
-        key: NO_KEY,
-        onUpdate: () => {
-          if (executingRef.current || flow !== flowRef.current) {
-            return;
-          }
-          flowUpdatedRef.current = true;
-          rerender(props);
-        },
-      }).restart(props));
-    } else {
-      flowUpdatedRef.current = false;
-      // ensure react hooks work properly
-      const result = renderFn(props);
-      result?.next?.();
-    }
-    executingRef.current = false;
-    const { on, faulted, data, error: e, running } = flowRef.current || {};
-
-    if (running) {
-      if (loading) return loading(props);
-      if (suspense) {
-        throw new Promise((resolve) => {
-          on?.("update", resolve);
-        });
-      }
-      return null;
-    }
-    if (faulted) {
-      if (error) return error(props, e);
-      throw e;
-    }
-    return data;
-  });
 }
 
 function createFlowHook<T extends AnyFunc>(
