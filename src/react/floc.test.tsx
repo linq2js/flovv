@@ -14,8 +14,13 @@ test("async loading", async () => {
   }
 
   const Component = floc(function* () {
+    const [count, setCount] = React.useState(0);
     const result: number = yield start(fetchData);
-    return <div data-testid="result">{result}</div>;
+    return (
+      <div data-testid="result" onClick={() => setCount(count + 1)}>
+        {result}
+      </div>
+    );
   });
 
   const { getByTestId } = render(<Component />, { wrapper });
