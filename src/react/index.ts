@@ -274,20 +274,22 @@ export function floc<TProps>(
       flowRef.current?.cancel();
     });
 
+    // if the flow just updates status we dont need to restart the flow
+    // only restart the flow if props is changed or re-render effect is triggered by hooks
     if (!flowUpdatedRef.current || rerenderProps !== props) {
       flowRef.current?.cancel();
-      flowRef.current = createFlow<typeof renderFn>({
+      const flow = (flowRef.current = createFlow<typeof renderFn>({
         controller: controller as InternalFlowController,
         fn: renderFn,
         key: NO_KEY,
         onUpdate: () => {
-          if (executingRef.current) {
+          if (executingRef.current || flow !== flowRef.current) {
             return;
           }
           flowUpdatedRef.current = true;
           rerender(props);
         },
-      }).restart(props);
+      }).restart(props));
     } else {
       flowUpdatedRef.current = false;
     }
