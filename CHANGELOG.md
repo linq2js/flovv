@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0](https://github.com/linq2js/flovv/compare/v1.13.0...v2.0.0) (2021-09-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* add async component
+
+* support NO_KEY flow ([7fcb2f6](https://github.com/linq2js/flovv/commit/7fcb2f6c822d07824f5b495402f704a88fbeccdd))
+
 ## [1.13.0](https://github.com/linq2js/flovv/compare/v1.12.0...v1.13.0) (2021-09-28)
 
 
