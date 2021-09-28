@@ -1,9 +1,8 @@
-import * as React from "react";
-
 import { act, renderHook } from "@testing-library/react-hooks";
 
-import { delay, createController, FlowController } from "../lib";
-import { FlowProvider, FlowProviderProps, useFlow } from "./index";
+import { delay } from "../lib";
+import { useFlow } from "./index";
+import { createWrapper } from "./testUtils";
 
 test("simple flow", async () => {
   function* getCount() {
@@ -17,22 +16,6 @@ test("simple flow", async () => {
   expect(result.current.running).toBeFalsy();
   expect(result.current.data).toBe(1);
 });
-
-function createWrapper(
-  props?: Partial<FlowProviderProps>
-): [React.FC<{}>, FlowController] {
-  const controller = createController();
-  return [
-    ({ children }) => {
-      return React.createElement(
-        FlowProvider,
-        { controller, ...props },
-        children
-      );
-    },
-    controller,
-  ];
-}
 
 test("default args", () => {
   function sum(a: number, b: number, c: number) {

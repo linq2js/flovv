@@ -5,6 +5,7 @@ export type AnyFunc = (...args: any[]) => any;
 
 export const FLOW_UPDATE_EVENT = "#flow";
 export const GLOBAL_STATUS_EVENT = "#status";
+export const NO_KEY = {};
 
 export interface EffectContext {
   flow: Flow;
@@ -146,7 +147,11 @@ export interface FlowOptions<T extends AnyFunc = AnyFunc> {
   previous?: InternalFlow<T>;
   key: any;
   fn: Function;
-  onSuccess?: (data: InternalFlow<T>) => void;
+  onUpdate?: (
+    data: FlowDataInfer<T> | undefined,
+    error: Error | undefined
+  ) => void;
+  onSuccess?: (data: FlowDataInfer<T>) => void;
   onError?: (error: Error) => void;
   initData?: FlowDataInfer<T>;
   initStatus?: FlowStatus;
@@ -391,6 +396,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   previous,
   key,
   fn,
+  onUpdate,
   onSuccess,
   onError,
   initData,
@@ -440,6 +446,13 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
     );
   }
 
+  function notifyUpdate() {
+    if (key === NO_KEY) {
+      return;
+    }
+    controller.flowUpdated(flow);
+  }
+
   function statusChanged(
     newStatus: FlowStatus,
     value: any,
@@ -464,8 +477,9 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       parent?.onChildError(error);
       cleanup();
     }
+    onUpdate?.(data, error);
     emitter.emit("update", flow);
-    controller.flowUpdated(flow);
+    notifyUpdate();
   }
 
   function iteratorDone(
@@ -594,7 +608,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       // mark as stale and do not trigger updated
       stale = 1;
       if (triggerUpdated) {
-        controller.flowUpdated(flow);
+        notifyUpdate();
       }
       cleanup();
     }
@@ -697,7 +711,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       if (wait) {
         status = "completed";
       }
-      controller.flowUpdated(flow);
+      notifyUpdate();
       return flow;
     },
     start(...args: any[]) {
@@ -739,7 +753,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
         else if (result && typeof result.next === "function") {
           iteratorNext(result, undefined);
           if (isRunning()) {
-            controller.flowUpdated(flow);
+            notifyUpdate();
           }
         } else {
           statusChanged("completed", result, false);
@@ -801,7 +815,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
         status = "running";
         next?.call(null, payload);
         if (status === "running") {
-          controller.flowUpdated(flow);
+          notifyUpdate();
         }
       }
       return flow;

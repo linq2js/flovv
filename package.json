@@ -22,7 +22,8 @@
     "release:major": "standard-version -r major && npm publish",
     "push": "git push origin --tags && git push",
     "test": "jest",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "sizes": "gzip-sizes ./dist/js/lib/**/*.js && gzip-sizes ./dist/js/react/**/*.js"
   },
   "keywords": [
     "functional",
@@ -83,6 +84,8 @@
     "rimraf": "^3.0.2",
     "standard-version": "^9.3.1",
     "ts-jest": "^27.0.5",
-    "typescript": "4.4.2"
-  }
+    "typescript": "4.4.2",
+    "gzip-sizes": "^1.0.1"
+  },
+  "dependencies": {}
 }
