@@ -105,7 +105,7 @@ export interface FlowController {
   run<T extends AnyFunc>(
     flow: T,
     ...args: Parameters<T>
-  ): CancellablePromise<ReturnType<T>>;
+  ): CancellablePromise<FlowDataInfer<T>>;
   flow<T extends AnyFunc>(key: string, flow: T): Flow<T>;
   flow<T extends AnyFunc>(flow: T): Flow<T>;
   flow(key: string): Flow | undefined;
@@ -301,7 +301,7 @@ export function createController({
     run(fn, ...args) {
       let cancel: () => void;
       return Object.assign(
-        new Promise<ReturnType<typeof fn>>((resolve, reject) => {
+        new Promise<FlowDataInfer<typeof fn>>((resolve, reject) => {
           const flow = createFlow({ controller, fn, key: {} });
           flow.on("end", () => {
             if (flow.faulted) {

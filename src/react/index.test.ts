@@ -83,3 +83,24 @@ test("default flow (hash)", () => {
 
   expect(result.current).toEqual([3, 2]);
 });
+
+test("idle", () => {
+  const [wrapper] = createWrapper();
+  const { result } = renderHook(() => useFlow(() => 1), { wrapper });
+  expect(result.current.idle).toBeTruthy();
+});
+
+test("default data", async () => {
+  const [wrapper] = createWrapper();
+  function* fetchData() {
+    yield delay(10);
+    return 1;
+  }
+  const { result } = renderHook(
+    () => useFlow(fetchData, { defaultData: 2 }).start().data,
+    { wrapper }
+  );
+  expect(result.current).toBe(2);
+  await act(() => delay(15));
+  expect(result.current).toBe(1);
+});

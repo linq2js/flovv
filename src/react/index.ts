@@ -46,14 +46,22 @@ export interface FlowHook<T extends AnyFunc> extends FlowHookWithoutArgs<T> {
   restart(...args: Parameters<T>): this;
 }
 
-export interface UseFlowOptions<T extends AnyFunc>
-  extends UseFlowOptionsWithoutArgs {
+export interface UseFlowOptions<T extends AnyFunc = AnyFunc>
+  extends UseFlowOptionsWithArgs<T> {
+  flow: T;
+  key?: any;
+}
+
+export interface UseFlowOptionsWithArgs<T extends AnyFunc>
+  extends UseFlowOptionsWithoutArgs<T> {
   args?: Parameters<T>;
+}
+
+export interface UseFlowOptionsWithoutArgs<T extends AnyFunc = AnyFunc> {
+  defaultData?: FlowDataInfer<T>;
   suspense?: boolean;
   errorBoundary?: boolean;
 }
-
-export interface UseFlowOptionsWithoutArgs {}
 
 export interface PrefetchMapFn extends Function {
   <T extends AnyFunc, TResult>(
@@ -67,7 +75,7 @@ export interface PrefetchMapFn extends Function {
     | undefined;
 }
 
-interface FlowHookOptions<T extends AnyFunc> extends UseFlowOptions<T> {
+interface FlowHookOptions<T extends AnyFunc> extends UseFlowOptionsWithArgs<T> {
   prependArgs?: any[];
 }
 
@@ -119,18 +127,21 @@ export function usePrefetcher(): [FlowExecutor, PrefetchMapFn] {
 }
 
 export function useFlow<T extends AnyFunc>(
+  options: UseFlowOptions<T>
+): FlowHook<T>;
+export function useFlow<T extends AnyFunc>(
   key: [string, ...Parameters<T>],
   flow: T,
-  options?: UseFlowOptionsWithoutArgs
+  options?: UseFlowOptionsWithoutArgs<T>
 ): FlowHookWithoutArgs<T>;
 export function useFlow<T extends AnyFunc>(
   key: string,
   flow: T,
-  options?: UseFlowOptions<T>
+  options?: UseFlowOptionsWithArgs<T>
 ): FlowHook<T>;
 export function useFlow<T extends AnyFunc>(
   flow: T,
-  options?: UseFlowOptions<T>
+  options?: UseFlowOptionsWithArgs<T>
 ): FlowHook<T>;
 
 export function useFlow(
@@ -138,6 +149,17 @@ export function useFlow(
   options?: UseFlowOptionsWithoutArgs
 ): FlowHook<AnyFunc>;
 export function useFlow<T extends AnyFunc>(...args: any[]): any {
+  // useFlow(options)
+  if (
+    args[0] &&
+    args.length === 1 &&
+    typeof args[0] === "object" &&
+    !Array.isArray(args[0])
+  ) {
+    const { flow, key, ...options } = args[0];
+    args = [key, flow, options];
+  }
+
   let fixedArgs = false;
   const originalKey = args[0];
   // key array  useFlow([key, arg1, arg2, arg3, arg4])
@@ -150,8 +172,11 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
   }
 
   const provider = React.useContext(flowContext);
+  if (!provider) {
+    throw new Error("No flow provider found");
+  }
   const prependArgs: any[] = [];
-  let overrideArgs: [any, T, UseFlowOptions<T>];
+  let overrideArgs: [any, T, UseFlowOptionsWithArgs<T>];
   if (typeof args[1] === "function") {
     overrideArgs = args as any;
   }
@@ -296,6 +321,9 @@ function createFlowHook<T extends AnyFunc>(
       return flowRef.current?.idle || false;
     },
     get data() {
+      if (!flowRef.current?.hasData) {
+        return optionsRef.current.defaultData;
+      }
       return flowRef.current?.data;
     },
     get current() {

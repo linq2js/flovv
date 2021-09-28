@@ -16,17 +16,44 @@ import {
 
 export interface Cancellable {}
 
+export interface RetryOptions {
+  times: number;
+  delay?: number;
+}
+
 export function retry<T extends AnyFunc>(
   times: number,
   fn: T,
   ...args: Parameters<T>
+): Effect;
+
+export function retry<T extends AnyFunc>(
+  options: RetryOptions,
+  fn: T,
+  ...args: Parameters<T>
+): Effect;
+export function retry<T extends AnyFunc>(
+  inputOptions: any,
+  fn: T,
+  ...args: Parameters<T>
 ) {
+  let options: RetryOptions = inputOptions;
+  if (typeof inputOptions !== "object") {
+    options = { times: inputOptions };
+  }
+  if (!options.times) {
+    throw new Error(`Invalid RetryOptions. 'times' options is required`);
+  }
   return (function* () {
-    for (let i = 0; i < times; i++) {
+    for (let i = 0; i < options.times; i++) {
       try {
         const result: ReturnType<T> = yield fn(...args);
         return result;
-      } catch (e) {}
+      } catch (e) {
+        if (options.delay) {
+          yield delay(options.delay);
+        }
+      }
     }
   })();
 }
