@@ -292,3 +292,23 @@ test("block", async () => {
   await delay(15);
   expect(flow.data).toBe(1);
 });
+
+test("throttle", async () => {
+  const results = [1, 2, 3];
+  function* fetchData() {
+    // block flow until it completed
+    yield block(15);
+    return 1;
+  }
+  const ctrl = createController();
+  const flow = ctrl.flow(fetchData);
+  flow.restart();
+  flow.restart();
+  flow.restart();
+  expect(flow.data).toBe(1);
+  await delay(5);
+  flow.restart();
+  flow.restart();
+  flow.restart();
+  expect(flow.data).toBe(1);
+});
