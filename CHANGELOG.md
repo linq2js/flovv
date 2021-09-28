@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.13.0](https://github.com/linq2js/flovv/compare/v1.12.0...v1.13.0) (2021-09-28)
+
+
+### Features
+
+* combine merge, update, date into one data() ([10a7436](https://github.com/linq2js/flovv/commit/10a74363fb9ca32174fceddc534c3744ca8ee22c))
+
 ## [1.12.0](https://github.com/linq2js/flovv/compare/v1.11.0...v1.12.0) (2021-09-28)
 
 
