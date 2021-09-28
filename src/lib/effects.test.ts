@@ -7,8 +7,7 @@ import {
   race,
   stale,
   start,
-  update,
-  merge,
+  data,
 } from "./effects";
 import { createController, delay } from "./main";
 
@@ -170,7 +169,7 @@ test("update by flowFn", () => {
     return 1;
   };
   function* updateFlow() {
-    yield update(countFlow, 2);
+    yield data(countFlow, 2);
   }
   expect(ctrl.flow(countFlow).start().data).toBe(1);
   ctrl.flow(updateFlow).start();
@@ -183,7 +182,7 @@ test("update by key", () => {
     return 1;
   };
   function* updateFlow() {
-    yield update("count", 2);
+    yield data("count", 2);
   }
   expect(ctrl.flow("count", countFlow).start().data).toBe(1);
   ctrl.flow(updateFlow).start();
@@ -254,7 +253,7 @@ test("debounce", async () => {
 
 test("merge", () => {
   function* fetchData() {
-    yield merge((current) => {
+    yield data((current) => {
       return current * 2;
     });
     return 1;

@@ -17,12 +17,12 @@ import {
 export interface Cancellable {}
 
 export interface RetryOptions {
-  times: number;
+  max: number;
   delay?: number;
 }
 
 export function retry<T extends AnyFunc>(
-  times: number,
+  max: number,
   fn: T,
   ...args: Parameters<T>
 ): Effect;
@@ -39,13 +39,13 @@ export function retry<T extends AnyFunc>(
 ) {
   let options: RetryOptions = inputOptions;
   if (typeof inputOptions !== "object") {
-    options = { times: inputOptions };
+    options = { max: inputOptions };
   }
-  if (!options.times) {
+  if (!options.max) {
     throw new Error(`Invalid RetryOptions. 'times' options is required`);
   }
   return (function* () {
-    for (let i = 0; i < options.times; i++) {
+    for (let i = 0; i < options.max; i++) {
       try {
         const result: ReturnType<T> = yield fn(...args);
         return result;
@@ -406,32 +406,29 @@ export function extra(value?: Record<string, any>): Effect {
   });
 }
 
-export function data(): Effect {
-  return createEffect((ec) => {
-    ec.next(ec.flow.previous?.data);
-  });
-}
-
-export function update(key: string, value: ((prev: any) => any) | any): Effect;
-export function update<T extends AnyFunc>(
+export function data(key: string, value: ((prev: any) => any) | any): Effect;
+export function data<T extends AnyFunc>(
   flow: T,
   value: ((prev: FlowDataInfer<T>) => FlowDataInfer<T>) | FlowDataInfer<T>
 ): Effect;
-export function update(key: any, value: any) {
-  return createEffect((ec) => {
-    const flow = ec.controller.flow(key) as InternalFlow;
-    if (flow?.key === ec.flow.key) {
-      throw new Error("Cannot update running flow");
-    }
-    flow?.update(value);
-    ec.next();
-  });
-}
-
-export function merge<T = any>(fn: (current: T, previous?: T) => T) {
+export function data<T = any>(mergeFn: (current: T, previous?: T) => T): Effect;
+export function data(): Effect;
+export function data(...args: any[]): Effect {
   return createEffect((ec: InternalEffectContext) => {
-    ec.flow.setMerge(fn as any);
-    ec.next();
+    if (!args.length) {
+      ec.next(ec.flow.previous?.data);
+    } else if (args.length === 1) {
+      ec.flow.setMerge(args[0]);
+      ec.next();
+    } else {
+      const [key, value] = args;
+      const flow = ec.controller.flow(key) as InternalFlow;
+      if (flow?.key === ec.flow.key) {
+        throw new Error("Cannot update running flow");
+      }
+      flow?.update(value);
+      ec.next();
+    }
   });
 }
 
