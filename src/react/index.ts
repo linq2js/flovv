@@ -292,6 +292,9 @@ export function floc<TProps>(
       }).restart(props));
     } else {
       flowUpdatedRef.current = false;
+      // ensure react hooks work properly
+      const result = renderFn(props);
+      result?.next?.();
     }
     executingRef.current = false;
     const { on, faulted, data, error: e, running } = flowRef.current || {};
