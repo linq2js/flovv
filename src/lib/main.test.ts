@@ -1,4 +1,5 @@
 import { createController, delay } from "./index";
+import { EffectContext } from "./main";
 
 test("simple generator", async () => {
   const results = [1];
@@ -62,4 +63,28 @@ test("execute", async () => {
   await expect(ctrl.run(fetchData, 1)).resolves.toBe(1);
   await expect(ctrl.run(fetchData, 2)).resolves.toBe(2);
   expect(callback).toBeCalledTimes(2);
+});
+
+test("effect context: end", () => {
+  const effect = (ec: EffectContext) => {
+    ec.end(1);
+  };
+  function* fetchData() {
+    yield effect;
+    return 2;
+  }
+  const ctrl = createController();
+  expect(ctrl.start(fetchData).data).toBe(1);
+});
+
+test("effect context: fail", () => {
+  const effect = (ec: EffectContext) => {
+    ec.fail(new Error("invalid"));
+  };
+  function* fetchData() {
+    yield effect;
+    return 2;
+  }
+  const ctrl = createController();
+  expect(ctrl.start(fetchData).error?.message).toBe("invalid");
 });

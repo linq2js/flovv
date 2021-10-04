@@ -142,11 +142,15 @@ export interface ControllerOptions {
 }
 
 export interface FlowOptions<T extends AnyFunc = AnyFunc> {
+  fn: T;
   controller: InternalFlowController;
   parent?: InternalFlow;
   previous?: InternalFlow<T>;
   key: any;
-  fn: Function;
+  onEnd?: (
+    data: FlowDataInfer<T> | undefined,
+    error: Error | undefined
+  ) => void;
   onUpdate?: (
     data: FlowDataInfer<T> | undefined,
     error: Error | undefined
@@ -308,13 +312,18 @@ export function createController({
       let cancel: () => void;
       return Object.assign(
         new Promise<FlowDataInfer<typeof fn>>((resolve, reject) => {
-          const flow = createFlow({ controller, fn, key: {} });
-          flow.on("end", () => {
-            if (flow.faulted) {
-              return reject(flow.error);
-            }
-            return resolve(flow.data);
+          const flow: Flow<typeof fn> = createFlow({
+            controller,
+            fn,
+            key: NO_KEY,
+            onEnd: () => {
+              if (flow.faulted) {
+                return reject(flow.error);
+              }
+              return resolve(flow.data as any);
+            },
           });
+
           cancel = flow.cancel;
           flow.start(...args);
         }),
@@ -399,6 +408,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
   onUpdate,
   onSuccess,
   onError,
+  onEnd,
   initData,
   initStatus = "idle",
   hasData,
@@ -428,6 +438,7 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
 
   function cleanup() {
     previous = undefined;
+    onEnd?.(data, error);
     emitter.emit("end");
     emitter.dispose();
   }

@@ -12,6 +12,7 @@ import {
   getKey,
   delay,
   FLOW_UPDATE_EVENT,
+  NO_KEY,
 } from "./main";
 
 export interface Cancellable {}
@@ -261,7 +262,7 @@ export function on(event: string | string[], ...args: any[]): any {
   return createEffect((ec) => {
     let latest: InternalFlow;
     const cancel = listenerChain(
-      () => (payload: any) => {
+      (cleanup) => (payload: any) => {
         if (!hasFlow) {
           cancel?.();
           return ec.next(payload);
@@ -271,13 +272,14 @@ export function on(event: string | string[], ...args: any[]): any {
           controller: ec.controller as any,
           parent: ec.flow as any,
           previous: latest,
-          key: {},
+          key: NO_KEY,
           fn: args[0],
           onError: ec.fail,
-        }).start(payload, ...args.slice(1));
+          onEnd: cleanup,
+        });
+        latest.start(payload, ...args.slice(1));
       },
-      (listener, add, cleanup) => {
-        add(ec.flow.on("end", cleanup));
+      (listener, add) => {
         add(ec.controller.on(event, listener));
       }
     );
@@ -372,7 +374,7 @@ export function fork<T extends AnyFunc>(flow: AnyFunc, ...args: Parameters<T>) {
     const { cancel, start } = createFlow({
       controller: ec.controller as any,
       parent: ec.flow as any,
-      key: {},
+      key: NO_KEY,
       fn: flow,
     });
     start(...args);
@@ -387,7 +389,7 @@ export function spawn<T extends AnyFunc>(
   return createEffect((ec) => {
     const { cancel, start } = createFlow({
       controller: ec.controller as any,
-      key: {},
+      key: NO_KEY,
       fn: flow,
     });
     start(...args);
@@ -509,7 +511,7 @@ function handleParallel(type: "all" | "race", targets: any) {
       const flow = createFlow({
         controller: ec.controller,
         parent: ec.flow,
-        key: {},
+        key: NO_KEY,
         fn,
         onSuccess: (data) => {
           onDone(key, true, data);

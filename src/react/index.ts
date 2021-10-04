@@ -61,6 +61,9 @@ export interface UseFlowOptionsWithoutArgs<T extends AnyFunc = AnyFunc> {
   defaultData?: FlowDataInfer<T>;
   suspense?: boolean;
   errorBoundary?: boolean;
+  onUpdated?: (flow: Flow<T>) => void;
+  onCompleted?: (data: FlowDataInfer<T>) => void;
+  onFaulted?: (error: Error) => void;
 }
 
 export interface PrefetchMapFn extends Function {
@@ -237,9 +240,18 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
 
   React.useLayoutEffect(() => {
     renderingRef.current = false;
-    return provider.controller.on(FLOW_UPDATE_EVENT, (flow) => {
+    const status = flowRef.current?.status;
+    return provider.controller.on(FLOW_UPDATE_EVENT, (flow: Flow) => {
       if (flow.key === key) {
         rerender({});
+        if (flow.status !== status) {
+          optionsRef.current.onUpdated?.(flow);
+          if (flow.completed) {
+            optionsRef.current.onCompleted?.(flow.data);
+          } else if (flow.faulted) {
+            optionsRef.current.onFaulted?.(flow.error as any);
+          }
+        }
       }
     });
   });
