@@ -32,6 +32,7 @@ export interface FlowHookWithoutArgs<T extends AnyFunc> {
   readonly cancelled: boolean;
   readonly stale: boolean;
   readonly hasData: boolean;
+  readonly disabled: boolean;
   update(data: FlowDataInfer<T>): this;
   update(reducer: (prev: FlowDataInfer<T>) => FlowDataInfer<T>): this;
   next(payload?: any): this;
@@ -61,6 +62,7 @@ export interface UseFlowOptionsWithoutArgs<T extends AnyFunc = AnyFunc> {
   defaultData?: FlowDataInfer<T>;
   suspense?: boolean;
   errorBoundary?: boolean;
+  disabled?: boolean;
   onUpdated?: (flow: Flow<T>) => void;
   onCompleted?: (data: FlowDataInfer<T>) => void;
   onFaulted?: (error: Error) => void;
@@ -242,6 +244,7 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
     renderingRef.current = false;
     const status = flowRef.current?.status;
     return provider.controller.on(FLOW_UPDATE_EVENT, (flow: Flow) => {
+      if (optionsRef.current.disabled) return;
       if (flow.key === key) {
         rerender({});
         if (flow.status !== status) {
@@ -305,6 +308,9 @@ function createFlowHook<T extends AnyFunc>(
   }
 
   function run(type: "start" | "restart", args: Parameters<T>) {
+    if (optionsRef.current.disabled) {
+      return flowHook;
+    }
     if (args.length && fixedArgs) {
       throw new Error(
         "Passing arguments to fixed args flow is not allowed. Use the overload useFlow(key, flow, { args: [] }) instead"
@@ -343,6 +349,9 @@ function createFlowHook<T extends AnyFunc>(
       }
       return flowRef.current?.data;
     },
+    get disabled() {
+      return optionsRef.current.disabled || false;
+    },
     get current() {
       return flowRef.current?.current;
     },
@@ -353,7 +362,9 @@ function createFlowHook<T extends AnyFunc>(
       return flowRef.current?.stale || false;
     },
     update(data: any) {
-      flowRef.current?.update(data);
+      if (!optionsRef.current.disabled) {
+        flowRef.current?.update(data);
+      }
       return flowHook;
     },
     start(...args: Parameters<T>) {
@@ -363,11 +374,15 @@ function createFlowHook<T extends AnyFunc>(
       return run("restart", args);
     },
     next(payload?: any) {
-      flowRef.current?.next(payload);
+      if (!optionsRef.current.disabled) {
+        flowRef.current?.next(payload);
+      }
       return flowHook;
     },
     cancel() {
-      flowRef.current?.cancel();
+      if (!optionsRef.current.disabled) {
+        flowRef.current?.cancel();
+      }
       return flowHook;
     },
   };
