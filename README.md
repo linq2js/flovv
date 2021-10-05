@@ -73,3 +73,5 @@ function* Increment() {
 
 - [Load More / Infinite Scroll](https://codesandbox.io/s/flovv-reddit-infinite-demo-nnq70?file=/src/App.js)
 - [Caching, Auto Refresh](https://codesandbox.io/s/flovv-reddit-demo-nc5fw?file=/src/App.js)
+- [Star Wars API](https://codesandbox.io/s/flovv-start-war-demo-76z7b?file=/src/App.js)
+- [The Rick and Morty API](https://codesandbox.io/s/flovv-the-rick-and-morty-api-gyrgf?file=/src/App.js)
