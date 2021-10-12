@@ -18,6 +18,7 @@ export interface FlowProviderProps {
   defaultFlow?: AnyFunc | Record<string, AnyFunc>;
   suspense?: boolean;
   errorBoundary?: boolean;
+  fallback?: React.ReactNode;
 }
 
 export interface FlowHookWithoutArgs<T extends AnyFunc> {
@@ -396,6 +397,7 @@ export const FlowProvider: React.FC<FlowProviderProps> = (props) => {
     suspense = parentProvider?.suspense || false,
     errorBoundary = parentProvider?.errorBoundary || false,
     defaultFlow = parentProvider?.defaultFlow,
+    fallback,
     children,
   } = props;
 
@@ -414,7 +416,7 @@ export const FlowProvider: React.FC<FlowProviderProps> = (props) => {
 
   if (!controller.ready) {
     if (suspense) throw controller.promise;
-    return null;
+    return React.createElement(React.Fragment, {}, fallback);
   }
 
   return React.createElement(flowContext.Provider, {
