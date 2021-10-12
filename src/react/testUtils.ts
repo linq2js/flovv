@@ -1,12 +1,13 @@
 import * as React from "react";
 
-import { createController, FlowController } from "../lib";
+import { createController, FlowController, ControllerOptions } from "../lib";
 import { FlowProvider, FlowProviderProps } from "./index";
 
 export function createWrapper(
-  props?: Partial<FlowProviderProps>
+  props?: Partial<FlowProviderProps>,
+  options?: Partial<ControllerOptions>
 ): [React.FC<{}>, FlowController] {
-  const controller = createController();
+  const controller = createController(options);
   return [
     ({ children }) => {
       return React.createElement(

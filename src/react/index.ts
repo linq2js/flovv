@@ -46,6 +46,11 @@ export interface FlowHookWithoutArgs<T extends AnyFunc> {
 export interface FlowHook<T extends AnyFunc> extends FlowHookWithoutArgs<T> {
   start(...args: Parameters<T>): this;
   restart(...args: Parameters<T>): this;
+  get(...args: Parameters<T>): FlowDataInfer<T> | undefined;
+  tryGet(
+    defaultValue: FlowDataInfer<T>,
+    ...args: Parameters<T>
+  ): FlowDataInfer<T>;
 }
 
 export interface UseFlowOptions<T extends AnyFunc = AnyFunc>
@@ -368,6 +373,15 @@ function createFlowHook<T extends AnyFunc>(
       }
       return flowHook;
     },
+    get(...args: Parameters<T>) {
+      return flowHook.start(...args).data;
+    },
+    tryGet(defaultValue, ...args: Parameters<T>) {
+      const { result = defaultValue } = {
+        result: flowHook.start(...args).data,
+      };
+      return result;
+    },
     start(...args: Parameters<T>) {
       return run("start", args);
     },
@@ -392,6 +406,7 @@ function createFlowHook<T extends AnyFunc>(
 
 export const FlowProvider: React.FC<FlowProviderProps> = (props) => {
   const parentProvider = React.useContext(flowContext);
+  const rerender = React.useState<any>()[1];
   const {
     controller = parentProvider?.controller,
     suspense = parentProvider?.suspense || false,
@@ -416,6 +431,7 @@ export const FlowProvider: React.FC<FlowProviderProps> = (props) => {
 
   if (!controller.ready) {
     if (suspense) throw controller.promise;
+    controller.promise.finally(() => rerender({}));
     return React.createElement(React.Fragment, {}, fallback);
   }
 
