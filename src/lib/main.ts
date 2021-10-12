@@ -840,14 +840,14 @@ export function makeKey(args: any[]) {
   return args.join(":");
 }
 
-export function getKey(value: any) {
+export function getKey(value: any): any {
   if (typeof value === "function") {
-    return value.flowKey || value;
+    return (value as any).flowKey || value;
   }
   if (Array.isArray(value)) {
     return makeKey(value);
   }
-  return value;
+  return String(value);
 }
 
 export interface FlowConfigs<T extends AnyFunc> {

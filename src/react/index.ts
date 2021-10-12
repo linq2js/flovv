@@ -87,7 +87,7 @@ export interface PrefetchMapFn extends Function {
 }
 
 interface FlowHookOptions<T extends AnyFunc> extends UseFlowOptionsWithArgs<T> {
-  prependArgs?: any[];
+  prependArgs: any[];
 }
 
 interface FlowContext {
@@ -137,99 +137,125 @@ export function usePrefetcher(): [FlowExecutor, PrefetchMapFn] {
   );
 }
 
-export function useFlow<T extends AnyFunc>(
-  options: UseFlowOptions<T>
-): FlowHook<T>;
-export function useFlow<T extends AnyFunc>(
-  key: [string, ...Parameters<T>],
-  flow: T,
-  options?: UseFlowOptionsWithoutArgs<T>
-): FlowHookWithoutArgs<T>;
-export function useFlow<T extends AnyFunc>(
-  key: string,
-  flow: T,
-  options?: UseFlowOptionsWithArgs<T>
-): FlowHook<T>;
-export function useFlow<T extends AnyFunc>(
-  flow: T,
-  options?: UseFlowOptionsWithArgs<T>
-): FlowHook<T>;
+export interface UseFlow extends Function {
+  // #1
+  <T extends AnyFunc>(options: UseFlowOptions<T>): FlowHook<T>;
+  // #2
+  <T extends AnyFunc>(
+    options: Exclude<UseFlowOptions<T>, "args">,
+    deps: Parameters<T>
+  ): FlowHook<T>;
+  // #3
+  <T extends AnyFunc>(
+    key: [string, ...Parameters<T>],
+    flow: T,
+    options?: UseFlowOptionsWithoutArgs<T>
+  ): FlowHookWithoutArgs<T>;
+  // #4
+  <T extends AnyFunc>(
+    key: [string, ...Parameters<T>],
+    flow: T,
+    options?: UseFlowOptionsWithoutArgs<T>
+  ): FlowHookWithoutArgs<T>;
+  // #5
+  <T extends AnyFunc>(
+    key: string,
+    flow: T,
+    options?: UseFlowOptionsWithArgs<T>
+  ): FlowHook<T>;
+  // #6
+  <T extends AnyFunc>(
+    key: string,
+    flow: T,
+    deps: Parameters<T>,
+    options?: UseFlowOptionsWithoutArgs<T>
+  ): FlowHook<T>;
+  // #7
+  <T extends AnyFunc>(
+    flow: T,
+    options?: UseFlowOptionsWithArgs<T>
+  ): FlowHook<T>;
+  // #8
+  <T extends AnyFunc>(
+    flow: T,
+    deps: Parameters<T>,
+    options?: UseFlowOptionsWithoutArgs<T>
+  ): FlowHook<T>;
+  // #9
+  (
+    key: string | [string, ...any[]],
+    options?: UseFlowOptionsWithoutArgs
+  ): FlowHook<AnyFunc>;
+  // #10
+  (
+    key: string,
+    deps: any[],
+    options?: UseFlowOptionsWithoutArgs
+  ): FlowHook<AnyFunc>;
+}
 
-export function useFlow(
-  key: string | [string, ...any[]],
-  options?: UseFlowOptionsWithoutArgs
-): FlowHook<AnyFunc>;
-export function useFlow<T extends AnyFunc>(...args: any[]): any {
-  // useFlow(options)
-  if (
-    args[0] &&
-    args.length === 1 &&
-    typeof args[0] === "object" &&
-    !Array.isArray(args[0])
-  ) {
-    const { flow, key, ...options } = args[0];
-    args = [key, flow, options];
-  }
+export const useFlow: UseFlow = useFlowFn;
 
-  let fixedArgs = false;
-  const originalKey = args[0];
-  // key array  useFlow([key, arg1, arg2, arg3, arg4])
-  if (Array.isArray(args[0])) {
-    // overwrite args option
-    // exclude first item (key)
-    args[2] = { ...args[2], args: args[0].slice(1) };
-    args[0] = makeKey(args[0]);
-    fixedArgs = true;
-  }
-
+function useFlowBase<T extends AnyFunc>(
+  key: any,
+  fn?: T,
+  deps?: Parameters<T>,
+  originalOptions?: UseFlowOptionsWithArgs<T>
+) {
   const provider = React.useContext(flowContext);
+
   if (!provider) {
     throw new Error("No flow provider found");
   }
+
   const prependArgs: any[] = [];
-  let overrideArgs: [any, T, UseFlowOptionsWithArgs<T>];
-  if (typeof args[1] === "function") {
-    overrideArgs = args as any;
-  }
-  // useFlow(fn, options)
-  else if (typeof args[0] === "function") {
-    overrideArgs = [getKey(args[0]), args[0], args[1]];
-  } else {
-    // useFlow(key, options)
-    if (Array.isArray(originalKey)) {
-      prependArgs.push(...originalKey);
-    } else {
-      prependArgs.push(originalKey);
+  let args: Parameters<T> | undefined = originalOptions?.args;
+
+  // no fn presents
+  if (!fn) {
+    if (!provider.defaultFlow) {
+      throw new Error("No provider.defaultFlow presents");
     }
-    let defaultFlow: T;
-    const defaultFlowKey = prependArgs[0];
+
+    // try to find fn from defaultFlow
     if (typeof provider.defaultFlow === "function") {
-      defaultFlow = provider.defaultFlow as any;
-    } else if (
-      typeof provider.defaultFlow === "object" &&
-      defaultFlowKey in provider.defaultFlow
-    ) {
-      defaultFlow = provider.defaultFlow[defaultFlowKey] as any;
-      prependArgs.shift();
+      fn = provider.defaultFlow as any;
+      if (Array.isArray(key)) {
+        prependArgs.push(...key);
+      } else {
+        prependArgs.push(key);
+      }
     } else {
-      throw new Error(`No default flow provided for key ${originalKey}`);
+      if (typeof key === "undefined") {
+        throw new Error("No key presents. Cannot find flow by key");
+      }
+      if (Array.isArray(key)) {
+        fn = provider.defaultFlow[key[0]] as any;
+      } else {
+        fn = provider.defaultFlow[key] as any;
+      }
     }
-    overrideArgs = [getKey(args[0]), defaultFlow, args[1]];
   }
 
-  const [
-    key,
-    fn,
-    {
-      suspense = provider.suspense,
-      errorBoundary = provider.errorBoundary,
-      ...options
-    } = {},
-  ] = overrideArgs;
+  if (typeof key === "undefined") {
+    key = fn;
+  }
+
+  if (Array.isArray(key)) {
+    args = key.slice(1) as any;
+  }
+
+  const {
+    suspense = provider.suspense,
+    errorBoundary = provider.errorBoundary,
+    ...options
+  } = originalOptions || {};
+  const fixedArgs = !!args;
   const rerender = React.useState<any>()[1];
-  const optionsRef = React.useRef<FlowHookOptions<T>>({});
+  const optionsRef = React.useRef<FlowHookOptions<T>>({ prependArgs });
   const renderingRef = React.useRef(false);
   const flowRef = React.useRef<InternalFlow<T>>();
+  const firstRunRef = React.useRef(true);
   const { flowHook, handleSuspeseAndErrorBoundary } = React.useMemo(() => {
     return createFlowHook(flowRef, renderingRef, optionsRef, fixedArgs);
   }, [suspense, errorBoundary, fixedArgs]);
@@ -238,13 +264,14 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
   renderingRef.current = true;
   optionsRef.current = {
     ...options,
+    args,
     suspense,
     errorBoundary,
     prependArgs,
   };
   // make sure removed flow does not cause an error
   flowRef.current =
-    (provider.controller.flow(key, fn) as any) || flowRef.current;
+    (provider.controller.flow(key, fn as any) as any) || flowRef.current;
 
   React.useLayoutEffect(() => {
     renderingRef.current = false;
@@ -267,7 +294,43 @@ export function useFlow<T extends AnyFunc>(...args: any[]): any {
 
   handleSuspeseAndErrorBoundary();
 
+  if (deps) {
+    const firstRun = firstRunRef.current;
+    firstRunRef.current = false;
+    React.useMemo.call(
+      null,
+      () => (firstRun ? flowHook.start(...deps) : flowHook.restart(...deps)),
+      deps
+    );
+  }
+
   return flowHook;
+}
+
+function useFlowFn<T extends AnyFunc>(...args: any[]): any {
+  // overload #1, #2
+  if (typeof args[0] === "object" && !Array.isArray(args[0])) {
+    const options: UseFlowOptions<T> = args[0];
+    return useFlowBase(options.key, options.flow, args[1], options);
+  }
+
+  // overload #7, #8
+  if (typeof args[0] === "function") {
+    // overload #8 (flow, deps, options)
+    if (Array.isArray(args[1])) {
+      const [flow, deps, options] = args;
+      return useFlowBase(undefined, flow, deps, options);
+    }
+    const [flow, options] = args;
+    return useFlowBase(undefined, flow, undefined, options);
+  }
+
+  if (Array.isArray(args[2])) {
+    const [key, flow, deps, options] = args;
+    return useFlowBase(key, flow, deps, options);
+  }
+  const [key, flow, options] = args;
+  return useFlowBase(key, flow, undefined, options);
 }
 
 export interface FlowComponentOptions<TProps> {
