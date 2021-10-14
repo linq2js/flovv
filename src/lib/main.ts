@@ -31,6 +31,8 @@ export interface InternalEffectContext extends EffectContext {
 export type FlowDataInfer<T> = T extends (...args: any[]) => infer TResult
   ? TResult extends Promise<infer TResolved>
     ? TResolved
+    : TResult extends Generator<any, infer TReturn>
+    ? TReturn
     : TResult extends Iterator<any, infer TReturn>
     ? TReturn
     : TResult

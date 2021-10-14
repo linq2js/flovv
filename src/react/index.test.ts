@@ -108,3 +108,25 @@ test("using deps", () => {
   rerender();
   expect(result.current).toBe(testData);
 });
+
+test("type inferring", async () => {
+  const [wrapper] = createWrapper();
+  function* getItem(key: string) {
+    const value: string = yield Promise.resolve(key);
+    return value;
+  }
+  function* NavigationState() {
+    const savedState: string = yield getItem("aaaa");
+    return savedState;
+  }
+
+  const { result } = renderHook(() => useFlow(NavigationState).tryGet(""), {
+    wrapper,
+  });
+
+  function print(data: string) {}
+
+  print(result.current);
+
+  await act(() => delay(10));
+});
