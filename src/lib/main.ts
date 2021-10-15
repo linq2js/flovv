@@ -599,6 +599,10 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
       }
     }
 
+    if (value === null || typeof value === "undefined") {
+      return iteratorNext(iterator, undefined);
+    }
+
     throw new Error(`Unsupported yield ${typeof value}: ${value}`);
   }
 
