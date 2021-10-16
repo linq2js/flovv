@@ -251,19 +251,27 @@ export function partial(data: any, wait?: boolean) {
   });
 }
 
+export function callback(callback: AnyFunc): Effect {
+  return createEffect((ec) => {
+    ec.next((...args: any[]) => {
+      return callback(...args);
+    });
+  });
+}
+
 export function on<T extends AnyFunc>(event: string | string[]): Effect;
-export function on<T extends AnyFunc>(
+export function on<T>(
   event: string | string[],
-  flow: T,
-  ...args: Parameters<T>
+  flow: (payload: T) => void
 ): Effect;
-export function on(event: string | string[], ...args: any[]): any {
-  const hasFlow = args.length > 1;
+export function on(event: string | string[], fn?: Function): any {
+  const hasFlow = arguments.length > 1;
   return createEffect((ec) => {
     let latest: InternalFlow;
     const cancel = listenerChain(
       (cleanup) => (payload: any) => {
         if (!hasFlow) {
+          cleanup();
           cancel?.();
           return ec.next(payload);
         }
@@ -273,11 +281,11 @@ export function on(event: string | string[], ...args: any[]): any {
           parent: ec.flow as any,
           previous: latest,
           key: NO_KEY,
-          fn: args[0],
+          fn,
           onError: ec.fail,
-          onEnd: cleanup,
         });
-        latest.start(payload, ...args.slice(1));
+
+        latest.start(payload);
       },
       (listener, add) => {
         add(ec.controller.on(event, listener));

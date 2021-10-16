@@ -1,3 +1,4 @@
+import { on } from "./effects";
 import { createController, delay } from "./index";
 import { EffectContext } from "./main";
 
@@ -87,4 +88,28 @@ test("effect context: fail", () => {
   }
   const ctrl = createController();
   expect(ctrl.start(fetchData).error?.message).toBe("invalid");
+});
+
+test("handle event", () => {
+  const results: number[] = [];
+  function handler1(e: any) {
+    results.push(e);
+  }
+
+  function handler2(value: number) {
+    results.push(value);
+  }
+
+  function* boostrap() {
+    yield on("1", handler1);
+    yield on("2", handler2);
+  }
+
+  const ctrl = createController();
+  ctrl.start(boostrap);
+  ctrl.emit("1", 1);
+  ctrl.emit("1", 2);
+  ctrl.emit("2", 3);
+
+  expect(results).toEqual([1, 2, 3]);
 });
