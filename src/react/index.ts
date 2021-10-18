@@ -254,6 +254,7 @@ function useFlowBase<T extends AnyFunc>(
   const rerender = React.useState<any>()[1];
   const optionsRef = React.useRef<FlowHookOptions<T>>({ prependArgs });
   const renderingRef = React.useRef(false);
+  const unmountRef = React.useRef(false);
   const flowRef = React.useRef<InternalFlow<T>>();
   const firstRunRef = React.useRef(true);
   const { flowHook, handleSuspeseAndErrorBoundary } = React.useMemo(() => {
@@ -273,11 +274,15 @@ function useFlowBase<T extends AnyFunc>(
   flowRef.current =
     (provider.controller.flow(key, fn as any) as any) || flowRef.current;
 
+  React.useEffect(() => () => {
+    unmountRef.current = true;
+  });
+
   React.useLayoutEffect(() => {
     renderingRef.current = false;
     const status = flowRef.current?.status;
     return provider.controller.on(FLOW_UPDATE_EVENT, (flow: Flow) => {
-      if (optionsRef.current.disabled) return;
+      if (optionsRef.current.disabled || unmountRef.current) return;
       if (flow.key === key) {
         rerender({});
         if (flow.status !== status) {
