@@ -274,9 +274,12 @@ function useFlowBase<T extends AnyFunc>(
   flowRef.current =
     (provider.controller.flow(key, fn as any) as any) || flowRef.current;
 
-  React.useEffect(() => () => {
-    unmountRef.current = true;
-  });
+  React.useEffect(
+    () => () => {
+      unmountRef.current = true;
+    },
+    []
+  );
 
   React.useLayoutEffect(() => {
     renderingRef.current = false;
