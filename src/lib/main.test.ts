@@ -54,7 +54,7 @@ test("cancel promise", async () => {
   expect(flow.data).toBeUndefined();
 });
 
-test("execute", async () => {
+test("run", async () => {
   const callback = jest.fn();
   function* fetchData(result: number) {
     callback();

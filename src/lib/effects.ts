@@ -354,7 +354,7 @@ export function run<T extends AnyFunc>(
 ): Effect;
 export function run(...args: any[]) {
   return createEffect((ec) => {
-    runFlow(ec, "execute", args);
+    runFlow(ec, "run", args);
   });
 }
 
@@ -444,12 +444,12 @@ export function data(...args: any[]): Effect {
 
 function runFlow(
   ec: EffectContext,
-  method: "start" | "restart" | "execute",
+  method: "start" | "restart" | "run",
   args: any[]
 ) {
   const result = (ec.controller as any)[method](...args);
 
-  if (method === "execute") {
+  if (method === "run") {
     return ec.next(result);
   }
 
