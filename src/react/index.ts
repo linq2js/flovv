@@ -286,15 +286,16 @@ function useFlowBase<T extends AnyFunc>(
     const status = flowRef.current?.status;
     return provider.controller.on(FLOW_UPDATE_EVENT, (flow: Flow) => {
       if (optionsRef.current.disabled || unmountRef.current) return;
-      if (flow.key === key) {
+      if (flow.key !== key) return;
+      if (!renderingRef.current) {
         rerender({});
-        if (flow.status !== status) {
-          optionsRef.current.onUpdated?.(flow);
-          if (flow.completed) {
-            optionsRef.current.onCompleted?.(flow.data);
-          } else if (flow.faulted) {
-            optionsRef.current.onFaulted?.(flow.error as any);
-          }
+      }
+      if (flow.status !== status) {
+        optionsRef.current.onUpdated?.(flow);
+        if (flow.completed) {
+          optionsRef.current.onCompleted?.(flow.data);
+        } else if (flow.faulted) {
+          optionsRef.current.onFaulted?.(flow.error as any);
         }
       }
     });
