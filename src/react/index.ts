@@ -281,7 +281,7 @@ function useFlowBase<T extends AnyFunc>(
     []
   );
 
-  React.useLayoutEffect(() => {
+  React.useEffect(() => {
     renderingRef.current = false;
     const status = flowRef.current?.status;
     return provider.controller.on(FLOW_UPDATE_EVENT, (flow: Flow) => {
