@@ -287,9 +287,7 @@ function useFlowBase<T extends AnyFunc>(
     return provider.controller.on(FLOW_UPDATE_EVENT, (flow: Flow) => {
       if (optionsRef.current.disabled || unmountRef.current) return;
       if (flow.key !== key) return;
-      if (!renderingRef.current) {
-        rerender({});
-      }
+      rerender({});
       if (flow.status !== status) {
         optionsRef.current.onUpdated?.(flow);
         if (flow.completed) {

@@ -88,26 +88,26 @@ test("default data", async () => {
   expect(result.current).toBe(1);
 });
 
-// test("using deps", () => {
-//   const [wrapper] = createWrapper();
-//   function* fetchData(data: number) {
-//     return data;
-//   }
-//   let testData = Math.random();
-//   const { result, rerender } = renderHook(
-//     () => useFlow(fetchData, [testData]).data,
-//     { wrapper }
-//   );
-//   expect(result.current).toBe(testData);
-//   // second try
-//   testData = Math.random();
-//   rerender();
-//   expect(result.current).toBe(testData);
-//   // third try
-//   testData = Math.random();
-//   rerender();
-//   expect(result.current).toBe(testData);
-// });
+test("using deps", () => {
+  const [wrapper] = createWrapper();
+  function* fetchData(data: number) {
+    return data;
+  }
+  let testData = Math.random();
+  const { result, rerender } = renderHook(
+    () => useFlow(fetchData, [testData]).data,
+    { wrapper }
+  );
+  expect(result.current).toBe(testData);
+  // second try
+  testData = Math.random();
+  rerender();
+  expect(result.current).toBe(testData);
+  // third try
+  testData = Math.random();
+  rerender();
+  expect(result.current).toBe(testData);
+});
 
 test("type inferring", async () => {
   const [wrapper] = createWrapper();
