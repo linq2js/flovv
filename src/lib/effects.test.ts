@@ -1,4 +1,4 @@
-import { block, expiry } from ".";
+import { block, callback, expiry } from ".";
 import {
   retry,
   partial,
@@ -310,4 +310,20 @@ test("throttle", async () => {
   flow.restart();
   flow.restart();
   expect(flow.data).toBe(1);
+});
+
+test("callback", () => {
+  let count = 0;
+  function* mainData() {
+    const cb: () => void = yield callback(function* () {
+      count++;
+    });
+    yield on("click", cb);
+  }
+  const ctrl = createController();
+  ctrl.start(mainData);
+  ctrl.emit("click");
+  ctrl.emit("click");
+  ctrl.emit("click");
+  expect(count).toBe(3);
 });

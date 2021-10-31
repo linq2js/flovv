@@ -254,7 +254,8 @@ export function partial(data: any, wait?: boolean) {
 export function callback(callback: AnyFunc): Effect {
   return createEffect((ec) => {
     ec.next((...args: any[]) => {
-      return ec.call(callback, ...args);
+      if (ec.flow.cancelled || ec.flow.faulted) return;
+      return ec.controller.run(callback, ...args);
     });
   });
 }
