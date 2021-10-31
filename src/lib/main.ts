@@ -16,6 +16,7 @@ export interface EffectContext {
   call<T extends (...args: any[]) => any>(fn: T, ...args: Parameters<T>): void;
   fail(error: any): void;
   end(result: any): void;
+  run<T extends (...args: any[]) => any>(fn: T, ...args: Parameters<T>): void;
 }
 
 export type Effect =
@@ -558,6 +559,12 @@ export function createFlow<T extends AnyFunc = AnyFunc>({
             flow,
             controller,
             context: controller.context,
+            run: (fn: AnyFunc, ...args: any[]) => {
+              if (c !== called || flow.cancelled || flow.faulted) {
+                return;
+              }
+              controller.run(fn, ...args);
+            },
             next: (value: any) => {
               if (c !== called) {
                 return;

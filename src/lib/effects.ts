@@ -255,7 +255,7 @@ export function callback(callback: AnyFunc): Effect {
   return createEffect((ec) => {
     ec.next((...args: any[]) => {
       if (ec.flow.cancelled || ec.flow.faulted) return;
-      return ec.controller.run(callback, ...args);
+      ec.run(callback, ...args);
     });
   });
 }
